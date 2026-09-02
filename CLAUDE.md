@@ -113,7 +113,7 @@ mechanism.
 ## Schema
 
 ```sql
-curriculum_nodes(node_id PK, syllabus, module, topic, spec_order)
+curriculum_nodes(node_id PK, syllabus, module, topic, spec_order, stretch_content)
 students(student_id PK, name, slug, syllabus, exam_board, exam_date)
 aliases(alias PK, student_id)
 lessons(lesson_id PK, drive_file_id UNIQUE, student_id, date,
@@ -128,6 +128,9 @@ needs_review(id PK, drive_file_id, file_title, reason, resolved)
 
 `node_id` is the official Edexcel specification point reference, taken verbatim from the
 spec document. It is never invented and never renamed.
+
+`stretch_content` flags nodes marked bold in the source spec — content grade 7+ students
+are likely to be pushed on, still examinable for everyone. Purely for planning context.
 
 `drive_file_id` carries the UNIQUE constraint that makes ingest idempotent.
 

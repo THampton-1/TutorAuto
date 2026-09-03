@@ -14,17 +14,7 @@ import sqlite3
 import sys
 
 DB_PATH = pathlib.Path("data/lessons.db")
-
-CREATE_TABLE_SQL = """
-CREATE TABLE IF NOT EXISTS curriculum_nodes (
-    node_id TEXT PRIMARY KEY,
-    syllabus TEXT NOT NULL,
-    module TEXT NOT NULL,
-    topic TEXT NOT NULL,
-    spec_order INTEGER NOT NULL,
-    stretch_content INTEGER NOT NULL
-)
-"""
+SCHEMA_PATH = pathlib.Path("scripts/schema.sql")
 
 # Expected point counts per module, read directly off the spec's own
 # numbering (the last point number in each module, e.g. N1..N16). This
@@ -46,7 +36,6 @@ def load_nodes(nodes_path: pathlib.Path) -> list[dict]:
 
 
 def write_nodes(connection: sqlite3.Connection, syllabus: str, nodes: list[dict]) -> None:
-    connection.execute(CREATE_TABLE_SQL)
     for node in nodes:
         connection.execute(
             """
@@ -111,6 +100,8 @@ if __name__ == "__main__":
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
+    with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+        connection.executescript(f.read())
     write_nodes(connection, syllabus="edexcel_gcse_higher", nodes=nodes)
 
     print(f"Wrote {len(nodes)} nodes to {DB_PATH}")

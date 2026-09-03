@@ -1,5 +1,7 @@
 .secrets/
 data/
+Students.xlsx
+~$Students.xlsx
 __pycache__/
 *.pyc
 .venv/

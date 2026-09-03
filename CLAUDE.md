@@ -77,8 +77,9 @@ without reconstructing it. Type hints on function signatures.
 /specs/            source PDFs, read-only
 /eval/             three hand-labelled transcripts plus my answer key
 /data/lessons.db   sqlite database
-/data/roster.csv   students and title aliases
-/scripts/          drive_client.py, build_curriculum.py, ingest.py, brief.py
+/Students.xlsx     roster, hand-edited — students, exam, grade prediction, confidence, notes
+/scripts/          drive_client.py, build_curriculum.py, build_roster.py, schema.sql,
+                   ingest.py, brief.py
 /tests/            pytest tests for the pure logic in /scripts (no live API calls)
 /.secrets/         OAuth client secret and token — gitignored
 ```
@@ -103,7 +104,7 @@ mechanism.
 2. Skip any whose Drive `fileId` already appears in `lessons`.
 3. Export the Doc to plain text.
 4. Resolve the student: lowercase the file title, match against the alias list in
-   `roster.csv`. Exactly one match proceeds. Zero matches or more than one goes to
+   `aliases`. Exactly one match proceeds. Zero matches or more than one goes to
    `needs_review` and is left alone.
 5. Resolve the date from the Drive `createdTime` field. Do not parse dates from titles —
    "week 17" is not a date.
@@ -112,9 +113,14 @@ mechanism.
 
 ## Schema
 
+`scripts/schema.sql` is the single source of truth for table definitions — every script
+that touches `lessons.db` runs it (idempotent, `CREATE TABLE IF NOT EXISTS`) rather than
+declaring tables inline. Summary:
+
 ```sql
 curriculum_nodes(node_id PK, syllabus, module, topic, spec_order, stretch_content)
-students(student_id PK, name, slug, syllabus, exam_board, exam_date)
+students(student_id PK, name, exam, year_of_study, syllabus, exam_board, exam_date,
+         grade_prediction, confidence_level, notes)
 aliases(alias PK, student_id)
 lessons(lesson_id PK, drive_file_id UNIQUE, student_id, date,
         transcript_path, processed_at)
@@ -131,6 +137,23 @@ spec document. It is never invented and never renamed.
 
 `stretch_content` flags nodes marked bold in the source spec — content grade 7+ students
 are likely to be pushed on, still examinable for everyone. Purely for planning context.
+
+`students.student_id` is the lowercased, underscore-joined student name (e.g. `ruby_t`) —
+also the sole seed row in `aliases` for that student. `exam` is `GCSE` or `A Level`, read
+straight from `Students.xlsx`; `syllabus` is derived from it deterministically
+(`build_roster.py`'s `EXAM_TO_SYLLABUS` map — currently `edexcel_gcse_higher` for GCSE,
+`edexcel_alevel_maths` for A Level). All current students are Edexcel; all current GCSE
+students are Higher tier — both hard-coded for now since the sheet has no board/tier column
+and only one curriculum tree exists. A-Level students correctly show 0 matching nodes until
+an A-Level tree is built (out of scope for this pass, see below).
+
+`grade_prediction`, `confidence_level`, and `notes` are loaded but not consumed by anything
+yet — they exist for Phase 4's stretch-content filtering (e.g. don't suggest bold/stretch
+nodes to a low-confidence, sub-7 student) and are stored now so no backfill is needed later.
+
+"Twins" is a deliberate single `students` row for two real students who are always taught
+together and always receive identical coverage — a joint decision, not a data error. If
+their coverage ever needs to diverge, this row will need to split into two.
 
 `drive_file_id` carries the UNIQUE constraint that makes ingest idempotent.
 
@@ -175,4 +198,6 @@ Gate: I read a real brief and can make a planning decision from it alone.
 ## Consent and privacy
 
 Lessons are recorded with parental consent on file. Transcripts stay local and are sent
-nowhere other than the extraction call. `/.secrets/` and `/data/` are gitignored.
+nowhere other than the extraction call. `/.secrets/`, `/data/`, and `Students.xlsx` (real
+student names, grade predictions, notes) are gitignored — this repo has a real GitHub
+remote, so none of these should ever enter git history.

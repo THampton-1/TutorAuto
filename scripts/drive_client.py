@@ -42,9 +42,9 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
-def find_meet_recordings_folder(service) -> str:
+def find_folder_by_name(service, name: str) -> str:
     query = (
-        "name = 'Meet Recordings' "
+        f"name = '{name}' "
         "and mimeType = 'application/vnd.google-apps.folder' "
         "and trashed = false"
     )
@@ -52,11 +52,15 @@ def find_meet_recordings_folder(service) -> str:
     folders = response.get("files", [])
 
     if len(folders) == 0:
-        raise RuntimeError("No folder named 'Meet Recordings' found in Drive.")
+        raise RuntimeError(f"No folder named {name!r} found in Drive.")
     if len(folders) > 1:
-        raise RuntimeError("Multiple folders named 'Meet Recordings' found; cannot disambiguate.")
+        raise RuntimeError(f"Multiple folders named {name!r} found; cannot disambiguate.")
 
     return folders[0]["id"]
+
+
+def find_meet_recordings_folder(service) -> str:
+    return find_folder_by_name(service, "Meet Recordings")
 
 
 def list_transcripts(service, folder_id: str, page_size: int = 10) -> list[dict]:

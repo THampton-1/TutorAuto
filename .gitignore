@@ -1,5 +1,7 @@
 .secrets/
 data/
+eval/
+Gemini Summaries/
 Students.xlsx
 ~$Students.xlsx
 __pycache__/

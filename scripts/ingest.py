@@ -69,6 +69,12 @@ Only report coverage actually evidenced in the transcript body. Do not infer
 coverage from a lesson title, date, or anything outside the transcript text
 itself.
 
+When it is unclear whether a curriculum point was genuinely covered, or
+unclear which status best fits, prefer the more conservative reading. It is
+better to omit a borderline point entirely, or to under-state its status
+(introduced rather than practised, practised rather than secure), than to
+claim coverage or mastery the transcript does not clearly support.
+
 Curriculum points for this student's syllabus:
 {node_catalogue}
 """
@@ -156,13 +162,27 @@ def call_extraction(client: anthropic.Anthropic, transcript_body: str, nodes: li
     node_catalogue = build_node_catalogue(nodes)
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(node_catalogue=node_catalogue)
 
-    response = client.messages.create(
+    # claude-sonnet-5 runs adaptive thinking by default (no "thinking" param
+    # needed to enable it), and that thinking draws from the same max_tokens
+    # budget as the JSON answer. A busy, long lesson can burn the whole
+    # budget on thinking alone, leaving stop_reason="max_tokens" and zero
+    # text blocks -- seen on a 62K-character transcript at max_tokens=8000.
+    # Streaming with a much larger ceiling avoids both that failure and the
+    # SDK's separate refusal to run a large max_tokens non-streaming.
+    with client.messages.stream(
         model=MODEL,
-        max_tokens=8000,
+        max_tokens=32000,
         system=system_prompt,
         messages=[{"role": "user", "content": transcript_body}],
         output_config={"format": {"type": "json_schema", "schema": build_output_schema(valid_node_ids)}},
-    )
+    ) as stream:
+        response = stream.get_final_message()
+
+    if response.stop_reason == "max_tokens":
+        raise RuntimeError(
+            "Extraction call ran out of max_tokens before finishing -- "
+            "raise max_tokens further or shorten the transcript."
+        )
 
     text = next(block.text for block in response.content if block.type == "text")
     import json

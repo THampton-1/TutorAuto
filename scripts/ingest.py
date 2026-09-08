@@ -299,5 +299,18 @@ if __name__ == "__main__":
     transcripts = list_transcripts(drive_service, folder_id, page_size=100)
 
     for transcript in transcripts:
-        result = ingest_one(connection, drive_service, anthropic_client, transcript)
+        try:
+            result = ingest_one(connection, drive_service, anthropic_client, transcript)
+        except Exception as error:
+            # One bad transcript (empty doc, extraction failure, transient
+            # API error, ...) must not stop every other transcript in this
+            # batch from being processed. Record it and move on; re-running
+            # the script will retry it, since nothing was committed for it.
+            record_needs_review(
+                connection,
+                transcript["id"],
+                transcript["name"],
+                f"{type(error).__name__}: {error}",
+            )
+            result = f"FAILED, logged to needs_review -- {type(error).__name__}: {error}"
         print(f"{transcript['name']!r}: {result}")

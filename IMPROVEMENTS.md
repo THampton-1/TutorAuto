@@ -17,6 +17,43 @@ not a functional one.
 then compare against Theo's recall and Gemini notes for that date the same
 way the first two were done.
 
+## needs_review failure reasons are raw exception text
+
+`ingest.py`'s batch loop (`ee0db1f`) catches any `ingest_one()` failure so one
+bad transcript can't stall the whole run, and logs it to `needs_review` with
+`f"{type(error).__name__}: {error}"` as the reason. That string is whatever
+Python's exception message happens to say, not a categorized, actionable
+reason -- fine while failures are rare and reviewed by eye, but if one
+failure type starts recurring (e.g. a specific Drive doc shape breaking
+repeatedly), it's worth catching that case specifically and writing a
+clearer reason instead of a stack-trace fragment.
+
+## Node descriptions are too dense for the brief
+
+`curriculum_nodes.topic` is the verbatim Edexcel spec text (correct and
+necessary as the source of truth, per CLAUDE.md's "node_id ... taken
+verbatim from the spec document"), but `brief.py` prints that full text on
+every line that mentions a node. For a node like R9 that's a 60+ word
+run-on sentence -- readable as a spec reference, not as something to
+glance at while planning. Theo confirmed (2026-09-08, reviewing the real
+Twins brief) this is his single biggest readability complaint: everything
+else in the brief -- last-lesson summary, stretch-content flagging, the
+overall structure -- landed well.
+
+**Design note for next attempt:** don't hand-write ~97 short labels, and
+don't let the model paraphrase spec text live in the extraction call
+(that call's job is matching coverage to node_id, not authoring copy, and
+paraphrasing risks drifting from the spec's actual meaning). Instead: a
+one-off, separate pass (not the recurring per-transcript call) that reads
+each of the 97 nodes once and proposes a short human-readable label (a
+few words -- e.g. R9 -> "Percentages and percentage change"), stored as a
+new `curriculum_nodes.short_label` column. Theo reviews and edits the
+proposed labels once, same spirit as the Phase 1 completeness report --
+the model proposes, he corrects, and it's a one-time cost, not a
+per-lesson one. `brief.py` then shows `short_label` in the bulleted
+sections and can keep the full spec text for the "Last lesson" section
+only, where the current level of detail already reads well.
+
 ## Time-per-topic tracking
 
 Theo wants to know total time spent per curriculum node, ideally

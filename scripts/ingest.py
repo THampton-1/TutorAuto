@@ -15,6 +15,7 @@ THOUGHTS.md's open question on this, now resolved by this approach.
 """
 
 import datetime
+import os
 import pathlib
 import re
 import sqlite3
@@ -34,7 +35,18 @@ from drive_client import (
 DB_PATH = pathlib.Path("data/lessons.db")
 SCHEMA_PATH = pathlib.Path("scripts/schema.sql")
 TRANSCRIPT_DIR = pathlib.Path("data/transcripts")
+KEY_FILE = pathlib.Path(".secrets/TutorScan2- API Key.txt")
 MODEL = "claude-sonnet-5"
+
+
+def load_api_key() -> str:
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return os.environ["ANTHROPIC_API_KEY"]
+    if KEY_FILE.exists():
+        return KEY_FILE.read_text(encoding="utf-8").strip()
+    raise RuntimeError(
+        f"No API key found. Set ANTHROPIC_API_KEY or write the key to {KEY_FILE}."
+    )
 
 VALID_STATUSES = ["introduced", "practised", "secure", "struggled", "revisit_requested"]
 
@@ -288,17 +300,29 @@ def ingest_one(
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
 
+    # Optional "--student <student_id>" filter restricts the batch to one
+    # student's lessons -- e.g. for a first real-data run, or to re-target
+    # a single student without processing the whole shared Meet Recordings
+    # folder (which also holds unrelated, non-tutoring meetings).
+    student_filter = None
+    if len(sys.argv) > 1 and sys.argv[1] == "--student":
+        student_filter = sys.argv[2]
+
     connection = sqlite3.connect(DB_PATH)
     connection.execute("PRAGMA foreign_keys = ON")
     with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
         connection.executescript(f.read())
 
     drive_service = get_drive_service()
-    anthropic_client = anthropic.Anthropic()
+    anthropic_client = anthropic.Anthropic(api_key=load_api_key())
     folder_id = find_meet_recordings_folder(drive_service)
     transcripts = list_transcripts(drive_service, folder_id, page_size=100)
 
     for transcript in transcripts:
+        if student_filter is not None:
+            resolved_student_id, _ = resolve_student(connection, transcript["name"])
+            if resolved_student_id != student_filter:
+                continue
         try:
             result = ingest_one(connection, drive_service, anthropic_client, transcript)
         except Exception as error:

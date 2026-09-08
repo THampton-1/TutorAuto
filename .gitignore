@@ -1,6 +1,7 @@
 .secrets/
 data/
 eval/
+briefs/
 Gemini Summaries/
 Students.xlsx
 ~$Students.xlsx

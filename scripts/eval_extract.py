@@ -59,15 +59,26 @@ if __name__ == "__main__":
     client = anthropic.Anthropic(api_key=load_api_key())
     coverage = call_extraction(client, transcript_body, nodes)
 
-    node_lookup = {node["node_id"]: node for node in nodes}
+    # Flatten to a sub_skill_id -> context lookup for display.
+    sub_skill_lookup = {}
+    for node in nodes:
+        for sub_skill in node["sub_skills"]:
+            sub_skill_lookup[sub_skill["sub_skill_id"]] = {
+                "module": node["module"],
+                "node_label": node["short_label"] or node["topic"],
+                "sub_label": sub_skill["label"],
+            }
 
     print(f"student: {student_id} | syllabus: {syllabus} | {len(coverage)} coverage row(s)\n")
     for event in coverage:
-        if event["node_id"] == "unmatched":
+        if event["sub_skill_id"] == "unmatched":
             print(f"[UNMATCHED] {event['raw_label']!r} -- status: {event['status']}")
         else:
-            node = node_lookup[event["node_id"]]
-            print(f"{event['node_id']} -- {node['module']}: {node['topic']}")
+            context = sub_skill_lookup[event["sub_skill_id"]]
+            print(
+                f"{event['sub_skill_id']} -- {context['module']}: "
+                f"{context['node_label']} > {context['sub_label']}"
+            )
             print(f"    status: {event['status']}")
         print(f"    quote: {event['evidence_quote']!r}")
         print()

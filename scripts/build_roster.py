@@ -22,8 +22,10 @@ import sys
 
 import openpyxl
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from schema_migrate import apply_schema
+
 DB_PATH = pathlib.Path("data/lessons.db")
-SCHEMA_PATH = pathlib.Path("scripts/schema.sql")
 ROSTER_PATH = pathlib.Path("Students.xlsx")
 
 EXAM_TO_SYLLABUS = {
@@ -45,6 +47,17 @@ def clean(value: object) -> str | None:
         stripped = value.strip()
         return stripped if stripped else None
     return value
+
+
+def parse_active(value: object) -> int:
+    # Absent or blank defaults to active; only an explicit negative marker
+    # flips it off, so a student is never silently deactivated by a typo.
+    text = clean(value)
+    if text is None:
+        return 1
+    if str(text).strip().lower() in ("no", "inactive", "false", "0", "n"):
+        return 0
+    return 1
 
 
 def read_roster(roster_path: pathlib.Path) -> list[dict]:
@@ -99,6 +112,7 @@ def build_student_row(record: dict) -> dict:
         "grade_prediction": record.get("Grade Prediction"),
         "confidence_level": record.get("Confidence Level"),
         "notes": record.get("Notes"),
+        "active": parse_active(record.get("Active")),
     }
 
 
@@ -108,11 +122,11 @@ def write_students(connection: sqlite3.Connection, student_rows: list[dict]) -> 
             """
             INSERT INTO students (
                 student_id, name, exam, year_of_study, syllabus,
-                exam_board, exam_date, grade_prediction, confidence_level, notes
+                exam_board, exam_date, grade_prediction, confidence_level, notes, active
             )
             VALUES (
                 :student_id, :name, :exam, :year_of_study, :syllabus,
-                :exam_board, :exam_date, :grade_prediction, :confidence_level, :notes
+                :exam_board, :exam_date, :grade_prediction, :confidence_level, :notes, :active
             )
             ON CONFLICT(student_id) DO UPDATE SET
                 name = excluded.name,
@@ -123,7 +137,8 @@ def write_students(connection: sqlite3.Connection, student_rows: list[dict]) -> 
                 exam_date = excluded.exam_date,
                 grade_prediction = excluded.grade_prediction,
                 confidence_level = excluded.confidence_level,
-                notes = excluded.notes
+                notes = excluded.notes,
+                active = excluded.active
             """,
             student,
         )
@@ -141,16 +156,17 @@ def write_students(connection: sqlite3.Connection, student_rows: list[dict]) -> 
 def print_roster_report(connection: sqlite3.Connection) -> None:
     cursor = connection.execute(
         """
-        SELECT s.name, s.exam, s.syllabus, COUNT(cn.node_id) AS node_count
+        SELECT s.name, s.exam, s.syllabus, s.active, COUNT(cn.node_id) AS node_count
         FROM students s
         LEFT JOIN curriculum_nodes cn ON cn.syllabus = s.syllabus
         GROUP BY s.student_id
-        ORDER BY s.name
+        ORDER BY s.active DESC, s.name
         """
     )
-    print(f"{'Name':<10} {'Exam':<8} {'Syllabus':<25} {'Nodes'}")
-    for name, exam, syllabus, node_count in cursor.fetchall():
-        print(f"{name:<10} {exam:<8} {syllabus:<25} {node_count}")
+    print(f"{'Name':<10} {'Exam':<8} {'Syllabus':<25} {'Active':<8} {'Nodes'}")
+    for name, exam, syllabus, active, node_count in cursor.fetchall():
+        active_label = "active" if active else "INACTIVE"
+        print(f"{name:<10} {exam:<8} {syllabus:<25} {active_label:<8} {node_count}")
 
 
 if __name__ == "__main__":
@@ -162,8 +178,7 @@ if __name__ == "__main__":
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
     connection.execute("PRAGMA foreign_keys = ON")
-    with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
-        connection.executescript(f.read())
+    apply_schema(connection)
 
     write_students(connection, student_rows)
 

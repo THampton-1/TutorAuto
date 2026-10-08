@@ -31,6 +31,7 @@ from drive_client import (
     get_drive_service,
     list_transcripts,
 )
+from schema_migrate import apply_schema
 
 DB_PATH = pathlib.Path("data/lessons.db")
 SCHEMA_PATH = pathlib.Path("scripts/schema.sql")
@@ -52,16 +53,20 @@ VALID_STATUSES = ["introduced", "practised", "secure", "struggled", "revisit_req
 
 SYSTEM_PROMPT_TEMPLATE = """\
 You are analysing the transcript of a one-to-one maths tutoring lesson. Your \
-only job is to identify which curriculum points from the list below were \
+only job is to identify which curriculum sub-skills from the list below were \
 covered in this lesson, and how.
 
-For each curriculum point actually discussed or practised in the transcript, \
-report:
+The curriculum is organised as nodes (a spec point, e.g. N8 Surds), each split \
+into sub-skills (e.g. N8.3 Rationalising denominators). You report coverage at \
+the sub-skill level, not the node level: a lesson that only rationalised \
+denominators is N8.3 alone, not all of N8.
 
-- node_id: the exact ID from the list below. Never invent an ID and never \
-  alter one.
+For each sub-skill actually discussed or practised in the transcript, report:
+
+- sub_skill_id: the exact ID from the list below (e.g. "N8.3"). Never invent \
+  an ID and never alter one.
 - status: one of introduced, practised, secure, struggled, revisit_requested
-    - introduced: the topic was taught or explained for the first time this lesson
+    - introduced: the sub-skill was taught or explained for the first time this lesson
     - practised: the student worked through examples or questions on it
     - secure: the student demonstrated clear, confident understanding
     - struggled: the student had noticeable difficulty with it
@@ -69,25 +74,32 @@ report:
       be covered again in a future lesson
 - evidence_quote: a short quote copied verbatim from the transcript that
   supports this classification. Do not paraphrase.
-- raw_label: leave this as an empty string when node_id is a real ID from
+- raw_label: leave this as an empty string when sub_skill_id is a real ID from
   the list below.
 
-If the transcript clearly covers a maths topic that is NOT in the list
-below, report it with node_id "unmatched", still give a status and an
-evidence_quote, and set raw_label to a short plain-English description of
-the topic (e.g. "trigonometric identities").
+Report each covered sub-skill as its own row with its own status. If several \
+sub-skills of the same node were covered, give a separate row for each -- their \
+statuses may differ (e.g. simplifying surds secure, rationalising struggled). \
+If a node was clearly covered but you genuinely cannot tell which sub-skill, \
+choose the sub-skill the evidence best supports; never report a sub-skill with \
+no supporting quote.
+
+If the transcript clearly covers a maths topic that is NOT in the list below, \
+report it with sub_skill_id "unmatched", still give a status and an \
+evidence_quote, and set raw_label to a short plain-English description of the \
+topic (e.g. "trigonometric identities").
 
 Only report coverage actually evidenced in the transcript body. Do not infer
 coverage from a lesson title, date, or anything outside the transcript text
 itself.
 
-When it is unclear whether a curriculum point was genuinely covered, or
-unclear which status best fits, prefer the more conservative reading. It is
-better to omit a borderline point entirely, or to under-state its status
-(introduced rather than practised, practised rather than secure), than to
-claim coverage or mastery the transcript does not clearly support.
+When it is unclear whether a sub-skill was genuinely covered, or unclear which \
+status best fits, prefer the more conservative reading. It is better to omit a \
+borderline sub-skill entirely, or to under-state its status (introduced rather \
+than practised, practised rather than secure), than to claim coverage or \
+mastery the transcript does not clearly support.
 
-Curriculum points for this student's syllabus:
+Curriculum nodes and their sub-skills for this student's syllabus:
 {node_catalogue}
 """
 
@@ -125,7 +137,7 @@ def already_ingested(connection: sqlite3.Connection, drive_file_id: str) -> bool
 def load_valid_nodes(connection: sqlite3.Connection, syllabus: str) -> list[dict]:
     cursor = connection.execute(
         """
-        SELECT node_id, module, topic
+        SELECT node_id, module, topic, short_label
         FROM curriculum_nodes
         WHERE syllabus = ?
         ORDER BY spec_order
@@ -133,19 +145,47 @@ def load_valid_nodes(connection: sqlite3.Connection, syllabus: str) -> list[dict
         (syllabus,),
     )
     nodes = []
-    for node_id, module, topic in cursor.fetchall():
-        nodes.append({"node_id": node_id, "module": module, "topic": topic})
+    for node_id, module, topic, short_label in cursor.fetchall():
+        sub_cursor = connection.execute(
+            "SELECT sub_skill_id, label FROM sub_skills WHERE node_id = ? ORDER BY sub_order",
+            (node_id,),
+        )
+        sub_skills = []
+        for sub_skill_id, label in sub_cursor.fetchall():
+            sub_skills.append({"sub_skill_id": sub_skill_id, "label": label})
+        nodes.append(
+            {
+                "node_id": node_id,
+                "module": module,
+                "topic": topic,
+                "short_label": short_label,
+                "sub_skills": sub_skills,
+            }
+        )
     return nodes
+
+
+def collect_sub_skill_ids(nodes: list[dict]) -> list[str]:
+    sub_skill_ids = []
+    for node in nodes:
+        for sub_skill in node["sub_skills"]:
+            sub_skill_ids.append(sub_skill["sub_skill_id"])
+    return sub_skill_ids
 
 
 def build_node_catalogue(nodes: list[dict]) -> str:
     lines = []
     for node in nodes:
-        lines.append(f"{node['node_id']} -- {node['module']}: {node['topic']}")
+        header = node["short_label"] if node["short_label"] else node["topic"]
+        lines.append(f"{node['node_id']} -- {node['module']} -- {header}")
+        lines.append(f"    spec: {node['topic']}")
+        lines.append("    sub-skills:")
+        for sub_skill in node["sub_skills"]:
+            lines.append(f"      {sub_skill['sub_skill_id']} {sub_skill['label']}")
     return "\n".join(lines)
 
 
-def build_output_schema(valid_node_ids: list[str]) -> dict:
+def build_output_schema(valid_sub_skill_ids: list[str]) -> dict:
     return {
         "type": "object",
         "properties": {
@@ -154,12 +194,12 @@ def build_output_schema(valid_node_ids: list[str]) -> dict:
                 "items": {
                     "type": "object",
                     "properties": {
-                        "node_id": {"type": "string", "enum": valid_node_ids + ["unmatched"]},
+                        "sub_skill_id": {"type": "string", "enum": valid_sub_skill_ids + ["unmatched"]},
                         "status": {"type": "string", "enum": VALID_STATUSES},
                         "evidence_quote": {"type": "string"},
                         "raw_label": {"type": "string"},
                     },
-                    "required": ["node_id", "status", "evidence_quote", "raw_label"],
+                    "required": ["sub_skill_id", "status", "evidence_quote", "raw_label"],
                     "additionalProperties": False,
                 },
             }
@@ -170,7 +210,7 @@ def build_output_schema(valid_node_ids: list[str]) -> dict:
 
 
 def call_extraction(client: anthropic.Anthropic, transcript_body: str, nodes: list[dict]) -> list[dict]:
-    valid_node_ids = [node["node_id"] for node in nodes]
+    valid_sub_skill_ids = collect_sub_skill_ids(nodes)
     node_catalogue = build_node_catalogue(nodes)
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(node_catalogue=node_catalogue)
 
@@ -186,7 +226,7 @@ def call_extraction(client: anthropic.Anthropic, transcript_body: str, nodes: li
         max_tokens=32000,
         system=system_prompt,
         messages=[{"role": "user", "content": transcript_body}],
-        output_config={"format": {"type": "json_schema", "schema": build_output_schema(valid_node_ids)}},
+        output_config={"format": {"type": "json_schema", "schema": build_output_schema(valid_sub_skill_ids)}},
     ) as stream:
         response = stream.get_final_message()
 
@@ -229,7 +269,8 @@ def write_coverage(
 ) -> None:
     created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
     for event in coverage:
-        if event["node_id"] == "unmatched":
+        sub_skill_id = event["sub_skill_id"]
+        if sub_skill_id == "unmatched":
             connection.execute(
                 """
                 INSERT INTO unmatched (lesson_id, raw_label, suggested_node, resolved_to)
@@ -238,13 +279,20 @@ def write_coverage(
                 (lesson_id, event["raw_label"]),
             )
         else:
+            # node_id is derived here from the authoritative sub_skills table
+            # rather than parsed out of the ID string, so the stored node_id
+            # can never drift from what the sub-skill actually belongs to.
+            node_row = connection.execute(
+                "SELECT node_id FROM sub_skills WHERE sub_skill_id = ?", (sub_skill_id,)
+            ).fetchone()
+            node_id = node_row[0]
             connection.execute(
                 """
                 INSERT INTO coverage_events
-                    (lesson_id, student_id, node_id, status, evidence_quote, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (lesson_id, student_id, node_id, sub_skill_id, status, evidence_quote, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (lesson_id, student_id, event["node_id"], event["status"], event["evidence_quote"], created_at),
+                (lesson_id, student_id, node_id, sub_skill_id, event["status"], event["evidence_quote"], created_at),
             )
     connection.commit()
 
@@ -310,8 +358,7 @@ if __name__ == "__main__":
 
     connection = sqlite3.connect(DB_PATH)
     connection.execute("PRAGMA foreign_keys = ON")
-    with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
-        connection.executescript(f.read())
+    apply_schema(connection)
 
     drive_service = get_drive_service()
     anthropic_client = anthropic.Anthropic(api_key=load_api_key())

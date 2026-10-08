@@ -33,6 +33,64 @@ this kind. That changes what I need from you:
 - **Stop and ask when a decision has a real tradeoff.** Don't quietly pick one.
 - **Don't add scope.** If something isn't in the current phase, mention it and move on.
 
+## Session workflow and logs
+
+Three living files track how this project evolves. They are the first thing to read
+each session and the record we update as we go:
+
+- `DECISIONS.md` — the Decision Log (ADRs). **Claude maintains this.**
+- `PARKING.md` — parked technical confusions and rabbit holes. **Theo leads this.**
+- `SESSION_LOG.md` — carry-over notes handed from the end of one session to the start of the next.
+
+### Session start: 5-bullet briefing
+
+At the start of every session, before doing anything else, read `DECISIONS.md`,
+`PARKING.md` and `SESSION_LOG.md` and give a 5-bullet summary:
+
+1. **Where we are**: current state of the project in one line
+2. **Last done**: what was completed last session
+3. **Open decisions**: anything undecided or recently decided that affects next steps
+4. **Parking lot**: the 1-2 most relevant parked items (and the count of the rest)
+5. **Next**: what to do first — leading with anything recorded as carry-over in `SESSION_LOG.md`
+
+Keep it to those 5 bullets. No preamble, then wait.
+
+### Session end
+
+Before we close, prompt Theo to name anything to continue with next session, and record
+it in `SESSION_LOG.md` under "Carry-over". That is what bullet 5 surfaces next time.
+
+### Working rules: decisions and parking
+
+**Decision Log (`DECISIONS.md`) — Claude maintains this.**
+- When we settle something significant (architecture, data format, tool choice, how a
+  pipeline stage works, anything we'd be annoyed to re-argue), add an entry before moving
+  on, and tell Theo in one line that you did.
+- Each entry: what we decided, why, what we rejected, and what would make us revisit it.
+- Never delete or rewrite old entries. If a decision changes, add a new entry and mark the
+  old one `Superseded by ADR-XXX`.
+- Before proposing a change in direction, check the log first; if it contradicts an
+  existing decision, say so. Theo may also request an ADR, but Claude owns keeping them current.
+
+**Parking Lot (`PARKING.md`) — Theo leads this.**
+- When Theo says "park it" (or we hit a technical rabbit hole that isn't blocking
+  progress), add it with a one-line description and why it matters, then keep moving.
+- Never stop to fully resolve a parked item unless Theo asks.
+- "parking lot" → show the open items. "resolve P-XX" → work on that one.
+
+**After fixing a bug or technical problem**
+- Give the root cause in 2 sentences of plain English: what broke, and why the fix works.
+  Add a one-line Decision Log note only if it changes how we build things going forward.
+- If Theo says "timebox", spend a fixed amount of effort, then report what you found even
+  if it's incomplete.
+
+**Shortcuts**
+- `log it` → write the decision we just made into `DECISIONS.md`
+- `park it` → add the current issue to `PARKING.md`
+- `parking lot` → list open parked items
+- `decisions` → list the Decision Log headings, newest first
+- `where are we` → re-run the 5-bullet briefing
+
 ## Design principles — do not violate these
 
 1. **One LLM call per transcript.** Its only job is the genuinely fuzzy part: reading a

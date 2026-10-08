@@ -31,12 +31,12 @@ STATUS_LABELS = {
 
 def get_student(connection: sqlite3.Connection, student_id: str) -> dict:
     row = connection.execute(
-        "SELECT student_id, name, syllabus FROM students WHERE student_id = ?",
+        "SELECT student_id, name, syllabus, active FROM students WHERE student_id = ?",
         (student_id,),
     ).fetchone()
     if row is None:
         raise ValueError(f"No student with id {student_id!r}")
-    return {"student_id": row[0], "name": row[1], "syllabus": row[2]}
+    return {"student_id": row[0], "name": row[1], "syllabus": row[2], "active": bool(row[3])}
 
 
 def get_last_lesson(connection: sqlite3.Connection, student_id: str) -> dict | None:
@@ -55,64 +55,82 @@ def get_last_lesson(connection: sqlite3.Connection, student_id: str) -> dict | N
     return {"lesson_id": row[0], "date": row[1]}
 
 
+def _event_from_row(row: tuple) -> dict:
+    """Build one coverage-unit dict from a joined coverage_events row.
+
+    A "unit" is a sub-skill when the row has one, or the whole node for the
+    legacy rows ingested before sub-skill tracking existed. unit_id is what
+    the brief groups and de-duplicates on; it is the sub_skill_id if present,
+    otherwise the node_id, so old and new data coexist without special-casing.
+    """
+    node_id, module, short_label, topic, stretch_content, status, evidence_quote, sub_skill_id, sub_label, date = row
+    return {
+        "node_id": node_id,
+        "module": module,
+        "short_label": short_label,
+        "topic": topic,
+        "stretch_content": bool(stretch_content),
+        "status": status,
+        "evidence_quote": evidence_quote,
+        "sub_skill_id": sub_skill_id,
+        "sub_label": sub_label,
+        "date": date,
+        "unit_id": sub_skill_id if sub_skill_id is not None else node_id,
+    }
+
+
+# Columns every coverage-unit query selects, in the order _event_from_row expects.
+_EVENT_COLUMNS = """
+    ce.node_id, cn.module, cn.short_label, cn.topic, cn.stretch_content,
+    ce.status, ce.evidence_quote, ce.sub_skill_id, ss.label, l.date
+"""
+
+
 def get_lesson_events(connection: sqlite3.Connection, lesson_id: int) -> list[dict]:
     cursor = connection.execute(
-        """
-        SELECT ce.node_id, cn.module, cn.topic, cn.stretch_content, ce.status, ce.evidence_quote
+        f"""
+        SELECT {_EVENT_COLUMNS}
         FROM coverage_events ce
         JOIN curriculum_nodes cn ON ce.node_id = cn.node_id
+        JOIN lessons l ON ce.lesson_id = l.lesson_id
+        LEFT JOIN sub_skills ss ON ce.sub_skill_id = ss.sub_skill_id
         WHERE ce.lesson_id = ?
         ORDER BY ce.event_id
         """,
         (lesson_id,),
     )
     events = []
-    for node_id, module, topic, stretch_content, status, evidence_quote in cursor.fetchall():
-        events.append(
-            {
-                "node_id": node_id,
-                "module": module,
-                "topic": topic,
-                "stretch_content": bool(stretch_content),
-                "status": status,
-                "evidence_quote": evidence_quote,
-            }
-        )
+    for row in cursor.fetchall():
+        events.append(_event_from_row(row))
     return events
 
 
-def get_latest_status_per_node(connection: sqlite3.Connection, student_id: str) -> dict[str, dict]:
-    """One entry per node: its most recent coverage_event, by lesson date then event_id.
+def get_latest_status_per_unit(connection: sqlite3.Connection, student_id: str) -> dict[str, dict]:
+    """One entry per coverage unit: its most recent event, by lesson date then event_id.
 
-    Walking events oldest-to-newest and overwriting by node_id leaves each
-    key holding its latest row -- so a node only shows as e.g. "struggled"
+    Walking events oldest-to-newest and overwriting by unit_id leaves each key
+    holding its latest row -- so a sub-skill only shows as e.g. "struggled"
     here if nothing has touched it since, which is exactly "not revisited
-    since" for the struggled/revisit-requested sections below.
+    since" for the struggled/revisit-requested sections below. Units are
+    sub-skills where available, whole nodes for legacy rows.
     """
     cursor = connection.execute(
-        """
-        SELECT ce.node_id, cn.module, cn.topic, cn.stretch_content, ce.status,
-               ce.evidence_quote, l.date
+        f"""
+        SELECT {_EVENT_COLUMNS}
         FROM coverage_events ce
         JOIN curriculum_nodes cn ON ce.node_id = cn.node_id
         JOIN lessons l ON ce.lesson_id = l.lesson_id
+        LEFT JOIN sub_skills ss ON ce.sub_skill_id = ss.sub_skill_id
         WHERE ce.student_id = ?
         ORDER BY l.date ASC, ce.event_id ASC
         """,
         (student_id,),
     )
-    latest_by_node = {}
-    for node_id, module, topic, stretch_content, status, evidence_quote, date in cursor.fetchall():
-        latest_by_node[node_id] = {
-            "node_id": node_id,
-            "module": module,
-            "topic": topic,
-            "stretch_content": bool(stretch_content),
-            "status": status,
-            "evidence_quote": evidence_quote,
-            "date": date,
-        }
-    return latest_by_node
+    latest_by_unit = {}
+    for row in cursor.fetchall():
+        event = _event_from_row(row)
+        latest_by_unit[event["unit_id"]] = event
+    return latest_by_unit
 
 
 def get_never_covered_nodes(
@@ -120,7 +138,7 @@ def get_never_covered_nodes(
 ) -> list[dict]:
     cursor = connection.execute(
         """
-        SELECT node_id, module, topic, stretch_content
+        SELECT node_id, module, short_label, topic, stretch_content
         FROM curriculum_nodes
         WHERE syllabus = ?
         ORDER BY spec_order
@@ -128,23 +146,26 @@ def get_never_covered_nodes(
         (syllabus,),
     )
     never_covered = []
-    for node_id, module, topic, stretch_content in cursor.fetchall():
+    for node_id, module, short_label, topic, stretch_content in cursor.fetchall():
         if node_id not in covered_node_ids:
             never_covered.append(
                 {
                     "node_id": node_id,
                     "module": module,
+                    "short_label": short_label,
                     "topic": topic,
                     "stretch_content": bool(stretch_content),
+                    "sub_skill_id": None,
+                    "sub_label": None,
                 }
             )
     return never_covered
 
 
-def build_candidates(latest_by_node: dict[str, dict], never_covered_nodes: list[dict]) -> list[dict]:
+def build_candidates(latest_by_unit: dict[str, dict], never_covered_nodes: list[dict]) -> list[dict]:
     """Propose up to three next-topic candidates, each with a one-line rationale.
 
-    Priority: the longest-outstanding struggled node, then the
+    Priority: the longest-outstanding struggled unit, then the
     longest-outstanding revisit request, then the next never-covered node
     in spec order -- filling any remaining slots the same way. This never
     picks a topic for Theo, only surfaces candidates with a plain reason
@@ -153,7 +174,7 @@ def build_candidates(latest_by_node: dict[str, dict], never_covered_nodes: list[
     """
     struggled = []
     revisit_requested = []
-    for node in latest_by_node.values():
+    for node in latest_by_unit.values():
         if node["status"] == "struggled":
             struggled.append(node)
         elif node["status"] == "revisit_requested":
@@ -202,11 +223,22 @@ def build_candidates(latest_by_node: dict[str, dict], never_covered_nodes: list[
     return candidates
 
 
-def format_node_line(node: dict) -> str:
-    label = f"{node['node_id']} -- {node['module']}: {node['topic']}"
-    if node["stretch_content"]:
-        label += " [stretch]"
-    return label
+def format_unit_line(unit: dict) -> str:
+    """One glanceable line: 'N8.3 -- Number: Surds > Rationalising denominators'.
+
+    Uses the short label, not the verbatim spec text (which was the brief's
+    main readability complaint). Falls back to the spec text only if a node
+    has no short_label yet, and drops the '> sub-skill' part for legacy
+    node-level rows that have no sub-skill.
+    """
+    ref = unit["sub_skill_id"] if unit["sub_skill_id"] else unit["node_id"]
+    headline = unit["short_label"] if unit["short_label"] else unit["topic"]
+    line = f"{ref} -- {unit['module']}: {headline}"
+    if unit["sub_label"]:
+        line += f" > {unit['sub_label']}"
+    if unit["stretch_content"]:
+        line += " [stretch]"
+    return line
 
 
 def gather_brief_data(connection: sqlite3.Connection, student_id: str) -> dict:
@@ -217,17 +249,20 @@ def gather_brief_data(connection: sqlite3.Connection, student_id: str) -> dict:
         return {"student": student, "last_lesson": None}
 
     last_events = get_lesson_events(connection, last_lesson["lesson_id"])
-    latest_by_node = get_latest_status_per_node(connection, student_id)
+    latest_by_unit = get_latest_status_per_unit(connection, student_id)
 
-    revisit_nodes = [node for node in latest_by_node.values() if node["status"] == "revisit_requested"]
+    revisit_nodes = [unit for unit in latest_by_unit.values() if unit["status"] == "revisit_requested"]
     revisit_nodes.sort(key=lambda n: n["date"])
 
-    struggled_nodes = [node for node in latest_by_node.values() if node["status"] == "struggled"]
+    struggled_nodes = [unit for unit in latest_by_unit.values() if unit["status"] == "struggled"]
     struggled_nodes.sort(key=lambda n: n["date"])
 
-    covered_node_ids = set(latest_by_node.keys())
+    # "Covered" for the never-covered list is node-level: a node counts as
+    # touched if any of its sub-skills has been, so we never recommend a node
+    # already partly taught. unit_id is a sub_skill_id or node_id, so map back.
+    covered_node_ids = set(unit["node_id"] for unit in latest_by_unit.values())
     never_covered_nodes = get_never_covered_nodes(connection, student["syllabus"], covered_node_ids)
-    candidates = build_candidates(latest_by_node, never_covered_nodes)
+    candidates = build_candidates(latest_by_unit, never_covered_nodes)
 
     return {
         "student": student,
@@ -244,6 +279,9 @@ def render_markdown(data: dict) -> str:
 
     lines = []
     lines.append(f"# Lesson brief -- {student['name']}")
+    if not student["active"]:
+        lines.append("")
+        lines.append("> **INACTIVE student -- lessons currently paused. Shown for reference only.**")
     lines.append("")
     lines.append(f"Syllabus: {student['syllabus']}")
     lines.append(f"Generated: {datetime.date.today().isoformat()}")
@@ -259,7 +297,7 @@ def render_markdown(data: dict) -> str:
         lines.append("No curriculum coverage was extracted from this lesson.")
     else:
         for event in data["last_events"]:
-            lines.append(f"- **{event['status']}** -- {format_node_line(event)}")
+            lines.append(f"- **{event['status']}** -- {format_unit_line(event)}")
             lines.append(f"  > {event['evidence_quote']}")
     lines.append("")
 
@@ -269,7 +307,7 @@ def render_markdown(data: dict) -> str:
         lines.append("None outstanding.")
     else:
         for node in data["revisit_nodes"]:
-            lines.append(f"- {format_node_line(node)} (requested {node['date']})")
+            lines.append(f"- {format_unit_line(node)} (requested {node['date']})")
             lines.append(f"  > {node['evidence_quote']}")
     lines.append("")
 
@@ -279,7 +317,7 @@ def render_markdown(data: dict) -> str:
         lines.append("None outstanding.")
     else:
         for node in data["struggled_nodes"]:
-            lines.append(f"- {format_node_line(node)} (struggled {node['date']})")
+            lines.append(f"- {format_unit_line(node)} (struggled {node['date']})")
             lines.append(f"  > {node['evidence_quote']}")
     lines.append("")
 
@@ -289,7 +327,7 @@ def render_markdown(data: dict) -> str:
         lines.append("No candidates available -- every node in this syllabus has been covered.")
     else:
         for candidate in data["candidates"]:
-            lines.append(f"- {format_node_line(candidate['node'])}")
+            lines.append(f"- {format_unit_line(candidate['node'])}")
             lines.append(f"  {candidate['rationale']}")
     lines.append("")
 
@@ -381,10 +419,13 @@ def html_status_badge(status: str) -> str:
     return f'<span class="badge badge-{html.escape(status)}">{label}</span>'
 
 
-def html_node_line(node: dict) -> str:
-    label = html.escape(f"{node['node_id']} -- {node['module']}: {node['topic']}")
-    stretch = ' <span class="stretch">stretch</span>' if node["stretch_content"] else ""
-    return f'<div class="node-line">{label}{stretch}</div>'
+def html_unit_line(unit: dict) -> str:
+    ref = unit["sub_skill_id"] if unit["sub_skill_id"] else unit["node_id"]
+    headline = unit["short_label"] if unit["short_label"] else unit["topic"]
+    label = html.escape(f"{ref} -- {unit['module']}: {headline}")
+    sub = f' <span class="sub">&rsaquo; {html.escape(unit["sub_label"])}</span>' if unit["sub_label"] else ""
+    stretch = ' <span class="stretch">stretch</span>' if unit["stretch_content"] else ""
+    return f'<div class="node-line">{label}{sub}{stretch}</div>'
 
 
 def render_html(data: dict) -> str:
@@ -396,6 +437,12 @@ def render_html(data: dict) -> str:
     parts.append(f"<title>Brief -- {html.escape(student['name'])}</title>")
     parts.append(f"<style>{HTML_STYLE}</style></head><body>")
     parts.append(f"<h1>{html.escape(student['name'])}</h1>")
+    if not student["active"]:
+        parts.append(
+            "<div class='item' style='border-color:#8a1f1f'>"
+            "<strong>INACTIVE student</strong> &mdash; lessons currently paused. "
+            "Shown for reference only.</div>"
+        )
     parts.append(
         f"<div class='meta'>Syllabus: {html.escape(student['syllabus'])} &middot; Generated: {generated}</div>"
     )
@@ -412,7 +459,7 @@ def render_html(data: dict) -> str:
         for event in data["last_events"]:
             parts.append("<div class='item'>")
             parts.append(html_status_badge(event["status"]))
-            parts.append(html_node_line(event))
+            parts.append(html_unit_line(event))
             parts.append(f"<blockquote>{html.escape(event['evidence_quote'])}</blockquote>")
             parts.append("</div>")
 
@@ -422,7 +469,7 @@ def render_html(data: dict) -> str:
     else:
         for node in data["revisit_nodes"]:
             parts.append("<div class='item'>")
-            parts.append(html_node_line(node))
+            parts.append(html_unit_line(node))
             parts.append(f"<div class='sub'>Requested {html.escape(node['date'])}</div>")
             parts.append(f"<blockquote>{html.escape(node['evidence_quote'])}</blockquote>")
             parts.append("</div>")
@@ -433,7 +480,7 @@ def render_html(data: dict) -> str:
     else:
         for node in data["struggled_nodes"]:
             parts.append("<div class='item'>")
-            parts.append(html_node_line(node))
+            parts.append(html_unit_line(node))
             parts.append(f"<div class='sub'>Struggled {html.escape(node['date'])}</div>")
             parts.append(f"<blockquote>{html.escape(node['evidence_quote'])}</blockquote>")
             parts.append("</div>")
@@ -444,7 +491,7 @@ def render_html(data: dict) -> str:
     else:
         for candidate in data["candidates"]:
             parts.append("<div class='item'>")
-            parts.append(html_node_line(candidate["node"]))
+            parts.append(html_unit_line(candidate["node"]))
             parts.append(f"<div class='rationale'>{html.escape(candidate['rationale'])}</div>")
             parts.append("</div>")
 
@@ -463,6 +510,9 @@ if __name__ == "__main__":
 
     connection = sqlite3.connect(DB_PATH)
     data = gather_brief_data(connection, target_student_id)
+
+    if not data["student"]["active"]:
+        print(f"Note: {data['student']['name']} is marked INACTIVE -- brief generated for reference only.")
 
     BRIEF_DIR.mkdir(exist_ok=True)
     today = datetime.date.today().isoformat()

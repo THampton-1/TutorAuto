@@ -8,6 +8,8 @@ next topics with a plain rationale each; it never picks one for Theo
 revisit requests) is a derived read over the append-only coverage_events
 log, never a separate mutable table (principle #4).
 
+Writes every lesson's archived brief for that student plus <id>_latest.html.
+
 Usage: python scripts/brief.py <student_id>
 """
 
@@ -105,7 +107,25 @@ def get_lesson_events(connection: sqlite3.Connection, lesson_id: int) -> list[di
     return events
 
 
-def get_latest_status_per_unit(connection: sqlite3.Connection, student_id: str) -> dict[str, dict]:
+def get_all_lessons(connection: sqlite3.Connection, student_id: str) -> list[dict]:
+    cursor = connection.execute(
+        """
+        SELECT lesson_id, date
+        FROM lessons
+        WHERE student_id = ?
+        ORDER BY date ASC, lesson_id ASC
+        """,
+        (student_id,),
+    )
+    lessons = []
+    for lesson_id, date in cursor.fetchall():
+        lessons.append({"lesson_id": lesson_id, "date": date})
+    return lessons
+
+
+def get_latest_status_per_unit(
+    connection: sqlite3.Connection, student_id: str, as_of_lesson: dict
+) -> dict[str, dict]:
     """One entry per coverage unit: its most recent event, by lesson date then event_id.
 
     Walking events oldest-to-newest and overwriting by unit_id leaves each key
@@ -113,6 +133,10 @@ def get_latest_status_per_unit(connection: sqlite3.Connection, student_id: str) 
     here if nothing has touched it since, which is exactly "not revisited
     since" for the struggled/revisit-requested sections below. Units are
     sub-skills where available, whole nodes for legacy rows.
+
+    Only lessons up to and including as_of_lesson count, so a brief for a
+    past lesson shows the picture as it stood right after that lesson --
+    not one quietly informed by lessons that came later.
     """
     cursor = connection.execute(
         f"""
@@ -122,9 +146,10 @@ def get_latest_status_per_unit(connection: sqlite3.Connection, student_id: str) 
         JOIN lessons l ON ce.lesson_id = l.lesson_id
         LEFT JOIN sub_skills ss ON ce.sub_skill_id = ss.sub_skill_id
         WHERE ce.student_id = ?
+          AND (l.date < ? OR (l.date = ? AND l.lesson_id <= ?))
         ORDER BY l.date ASC, ce.event_id ASC
         """,
-        (student_id,),
+        (student_id, as_of_lesson["date"], as_of_lesson["date"], as_of_lesson["lesson_id"]),
     )
     latest_by_unit = {}
     for row in cursor.fetchall():
@@ -241,15 +266,26 @@ def format_unit_line(unit: dict) -> str:
     return line
 
 
-def gather_brief_data(connection: sqlite3.Connection, student_id: str) -> dict:
+def gather_brief_data(
+    connection: sqlite3.Connection, student_id: str, as_of_lesson: dict | None = None
+) -> dict:
+    """Everything one brief needs, as it stood right after as_of_lesson.
+
+    as_of_lesson defaults to the student's most recent lesson (the
+    pre-lesson brief). Passing an earlier lesson rebuilds that lesson's
+    archived brief from the same append-only log.
+    """
     student = get_student(connection, student_id)
-    last_lesson = get_last_lesson(connection, student_id)
+    if as_of_lesson is None:
+        last_lesson = get_last_lesson(connection, student_id)
+    else:
+        last_lesson = as_of_lesson
 
     if last_lesson is None:
         return {"student": student, "last_lesson": None}
 
     last_events = get_lesson_events(connection, last_lesson["lesson_id"])
-    latest_by_unit = get_latest_status_per_unit(connection, student_id)
+    latest_by_unit = get_latest_status_per_unit(connection, student_id, last_lesson)
 
     revisit_nodes = [unit for unit in latest_by_unit.values() if unit["status"] == "revisit_requested"]
     revisit_nodes.sort(key=lambda n: n["date"])
@@ -499,6 +535,73 @@ def render_html(data: dict) -> str:
     return "".join(parts)
 
 
+def student_brief_dir(student_id: str) -> pathlib.Path:
+    return BRIEF_DIR / student_id
+
+
+def write_brief_files(data: dict, also_write_latest: bool = True) -> list[pathlib.Path]:
+    """Write the brief into briefs/<id>/ as <id>_<last lesson date>.{md,html},
+    plus <id>_latest.html when also_write_latest is set.
+
+    Each student gets their own folder (ADR-010) so the top of /briefs/
+    stays just index.html plus one folder per student, however many
+    lessons accumulate. File names still carry the student id, so a brief
+    is self-identifying even when opened or shared on its own.
+
+    Files are named after the lesson the brief follows, not the day it was
+    generated (ADR-008). The nightly refresh therefore rewrites the same
+    file until a new lesson arrives, then starts a new one -- so there is
+    exactly one stored brief per lesson, and no pile of identical daily
+    copies. Re-generating is cheap (pure SQL, no model call), so a stored
+    brief always reflects the current database, e.g. after re-extraction.
+    """
+    student_id = data["student"]["student_id"]
+    if data["last_lesson"] is not None:
+        file_stem = f"{student_id}_{data['last_lesson']['date']}"
+    else:
+        file_stem = f"{student_id}_no-lessons"
+
+    student_dir = student_brief_dir(student_id)
+    student_dir.mkdir(parents=True, exist_ok=True)
+
+    markdown_path = student_dir / f"{file_stem}.md"
+    markdown_path.write_text(render_markdown(data), encoding="utf-8")
+
+    html_body = render_html(data)
+    dated_html_path = student_dir / f"{file_stem}.html"
+    dated_html_path.write_text(html_body, encoding="utf-8")
+
+    written_paths = [markdown_path, dated_html_path]
+    if also_write_latest:
+        latest_html_path = student_dir / f"{student_id}_latest.html"
+        latest_html_path.write_text(html_body, encoding="utf-8")
+        written_paths.append(latest_html_path)
+    return written_paths
+
+
+def write_all_briefs(connection: sqlite3.Connection, student_id: str) -> list[pathlib.Path]:
+    """Write one archived brief per lesson the student has ever had, plus _latest.
+
+    Writing only the newest lesson's brief left gaps: when several lessons
+    arrive in one refresh (a backlog, or the laptop off for a few days),
+    the earlier ones never got a brief of their own -- first seen
+    2026-10-08, when five Eliza lessons ingested at once produced one file.
+    Rebuilding every lesson's brief each run closes that for good, and costs
+    milliseconds per lesson (pure SQL, no model call).
+    """
+    lessons = get_all_lessons(connection, student_id)
+    if len(lessons) == 0:
+        return write_brief_files(gather_brief_data(connection, student_id))
+
+    written_paths = []
+    newest_lesson = lessons[-1]
+    for lesson in lessons:
+        data = gather_brief_data(connection, student_id, as_of_lesson=lesson)
+        is_newest = lesson["lesson_id"] == newest_lesson["lesson_id"]
+        written_paths.extend(write_brief_files(data, also_write_latest=is_newest))
+    return written_paths
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -509,22 +612,10 @@ if __name__ == "__main__":
     target_student_id = sys.argv[1]
 
     connection = sqlite3.connect(DB_PATH)
-    data = gather_brief_data(connection, target_student_id)
+    student = get_student(connection, target_student_id)
 
-    if not data["student"]["active"]:
-        print(f"Note: {data['student']['name']} is marked INACTIVE -- brief generated for reference only.")
+    if not student["active"]:
+        print(f"Note: {student['name']} is marked INACTIVE -- brief generated for reference only.")
 
-    BRIEF_DIR.mkdir(exist_ok=True)
-    today = datetime.date.today().isoformat()
-
-    markdown_path = BRIEF_DIR / f"{target_student_id}_{today}.md"
-    markdown_path.write_text(render_markdown(data), encoding="utf-8")
-
-    html_body = render_html(data)
-    dated_html_path = BRIEF_DIR / f"{target_student_id}_{today}.html"
-    dated_html_path.write_text(html_body, encoding="utf-8")
-
-    latest_html_path = BRIEF_DIR / f"{target_student_id}_latest.html"
-    latest_html_path.write_text(html_body, encoding="utf-8")
-
-    print(f"Brief written to {markdown_path}, {dated_html_path}, {latest_html_path}")
+    written_paths = write_all_briefs(connection, target_student_id)
+    print(f"Wrote {len(written_paths)} file(s) to {student_brief_dir(target_student_id)}")

@@ -52,7 +52,27 @@ def test_raises_when_no_transcript_heading_present():
         extract_transcript_body("Just some random doc text with no heading at all.\r\n")
 
 
-def test_raises_when_emoji_heading_has_no_header_body_gap():
-    broken_doc = "\U0001F4D6 Transcript\r\nTeacher Name: Hello.\r\n"
+def test_extracts_body_when_dialogue_follows_emoji_heading_directly():
+    # Since the 2026-09-08 fix, the body starts at the first "Speaker: "
+    # line -- no blank-line gap after the heading is required.
+    doc = "\U0001F4D6 Transcript\r\nTeacher Name: Hello.\r\n"
+    assert extract_transcript_body(doc) == "Teacher Name: Hello."
+
+
+def test_raises_when_emoji_heading_has_no_dialogue_or_timestamp_after_it():
+    broken_doc = "\U0001F4D6 Transcript\r\n\r\nno speaker lines here\r\n"
     with pytest.raises(ValueError):
         extract_transcript_body(broken_doc)
+
+
+def test_falls_back_to_first_timestamp_when_no_speaker_labels():
+    # Shape of the real 2026-09-14 Gabriel doc: Meet produced no speaker labels.
+    doc = (
+        "Summary text.\r\n\U0001F4D6 Transcript\r\nSep 14, 2026\r\n"
+        "lesson: Gabriel - Transcript\r\n00:00:01\r\n\r\n\r\n"
+        "a line parallel perpendicular. Huh?\r\n\r\n00:00:20\r\n\r\nAnd then you can do five.\r\n"
+    )
+    body = extract_transcript_body(doc)
+    assert body.startswith("00:00:01")
+    assert "lesson: Gabriel - Transcript" not in body
+    assert body.endswith("And then you can do five.")

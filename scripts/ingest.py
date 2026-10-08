@@ -12,6 +12,10 @@ word-tokens in the Drive file title (both lowercased), rather than requiring
 an exact "Lesson: Name" format. This handles real-world title drift (e.g.
 "W7: Twins lesson", "W13:saska") without a separate backfill path -- see
 THOUGHTS.md's open question on this, now resolved by this approach.
+
+Drive files are found across "Google Meet" and all its per-meeting
+subfolders (ADR-006), then filtered to lesson-shaped titles only (ADR-007).
+Run nightly by refresh.py (ADR-009); safe to run by hand any time.
 """
 
 import datetime
@@ -27,9 +31,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from drive_client import (
     export_transcript_text,
     extract_transcript_body,
-    find_meet_recordings_folder,
     get_drive_service,
-    list_transcripts,
+    list_all_meet_transcripts,
 )
 from schema_migrate import apply_schema
 
@@ -102,6 +105,19 @@ mastery the transcript does not clearly support.
 Curriculum nodes and their sub-skills for this student's syllabus:
 {node_catalogue}
 """
+
+
+# Only Drive titles that look like a lesson are considered at all: "Lesson:"
+# (any case) or a week marker "W" + digits ("W7:", "W13:saska"). Everything
+# else in the Meet folders -- business meetings, "Untitled meeting",
+# auto-named "abc-defg-hij" calls -- is ignored silently: no API call, no
+# needs_review row. Theo owns getting lesson titles into this form; typos
+# like "Leson:" or "W:20" are deliberately NOT rescued (ADR-007).
+LESSON_TITLE_PATTERN = re.compile(r"^\s*(lesson:|w\d+)", re.IGNORECASE)
+
+
+def is_lesson_title(file_title: str) -> bool:
+    return LESSON_TITLE_PATTERN.match(file_title) is not None
 
 
 def normalize_title(file_title: str) -> list[str]:
@@ -297,7 +313,37 @@ def write_coverage(
     connection.commit()
 
 
-def record_needs_review(connection: sqlite3.Connection, drive_file_id: str, file_title: str, reason: str) -> None:
+# Reasons written for a lesson that crashed mid-ingest start with this, so
+# they can be counted separately from "no alias matched"-type reviews.
+FAILURE_PREFIX = "FAILED: "
+
+# A lesson that keeps failing may be failing *after* the paid extraction
+# call (e.g. running out of max_tokens). Retrying it every night forever
+# would bill every night forever, so after this many failed attempts it is
+# held until Theo looks at it (set its needs_review rows to resolved = 1 to
+# allow fresh attempts). Transient failures still get retried automatically
+# on the following nights, up to this cap.
+MAX_FAILED_ATTEMPTS = 3
+
+
+def record_needs_review(
+    connection: sqlite3.Connection,
+    drive_file_id: str,
+    file_title: str,
+    reason: str,
+    deduplicate: bool = True,
+) -> None:
+    # The nightly refresh sees the same unresolved file every night. Without
+    # this check it would add a fresh, identical needs_review row each time.
+    # Failed attempts are the exception (deduplicate=False): each one is its
+    # own row, because counting them is what enforces MAX_FAILED_ATTEMPTS.
+    if deduplicate:
+        existing = connection.execute(
+            "SELECT 1 FROM needs_review WHERE drive_file_id = ? AND reason = ? AND resolved = 0",
+            (drive_file_id, reason),
+        ).fetchone()
+        if existing is not None:
+            return
     connection.execute(
         "INSERT INTO needs_review (drive_file_id, file_title, reason, resolved) VALUES (?, ?, ?, 0)",
         (drive_file_id, file_title, reason),
@@ -305,26 +351,63 @@ def record_needs_review(connection: sqlite3.Connection, drive_file_id: str, file
     connection.commit()
 
 
+def count_failed_attempts(connection: sqlite3.Connection, drive_file_id: str) -> int:
+    row = connection.execute(
+        "SELECT COUNT(*) FROM needs_review WHERE drive_file_id = ? AND resolved = 0 AND reason LIKE ?",
+        (drive_file_id, FAILURE_PREFIX + "%"),
+    ).fetchone()
+    return row[0]
+
+
+def mark_needs_review_resolved(connection: sqlite3.Connection, drive_file_id: str) -> None:
+    # Called once a file finally ingests (e.g. after Theo adds a missing
+    # alias, or a transient API error clears), so old review rows for it
+    # stop showing as outstanding.
+    connection.execute(
+        "UPDATE needs_review SET resolved = 1 WHERE drive_file_id = ? AND resolved = 0",
+        (drive_file_id,),
+    )
+    connection.commit()
+
+
 def ingest_one(
     connection: sqlite3.Connection,
     drive_service,
-    anthropic_client: anthropic.Anthropic,
+    anthropic_client: anthropic.Anthropic | None,
     transcript: dict,
-) -> str:
+    dry_run: bool = False,
+) -> tuple[str, str]:
+    """Process one Drive file. Returns (outcome, human-readable detail).
+
+    outcome is one of: known, needs_review, out_of_scope, would_ingest,
+    ingested. dry_run stops just before anything costs money or writes to
+    the database.
+    """
     drive_file_id = transcript["id"]
     file_title = transcript["name"]
 
     if already_ingested(connection, drive_file_id):
-        return "skipped (already ingested)"
+        return "known", "skipped (already ingested)"
 
     student_id, reason = resolve_student(connection, file_title)
     if student_id is None:
-        record_needs_review(connection, drive_file_id, file_title, reason)
-        return f"needs_review ({reason})"
+        if not dry_run:
+            record_needs_review(connection, drive_file_id, file_title, reason)
+        return "needs_review", f"needs_review ({reason})"
 
     cursor = connection.execute("SELECT syllabus FROM students WHERE student_id = ?", (student_id,))
     syllabus = cursor.fetchone()[0]
     nodes = load_valid_nodes(connection, syllabus)
+
+    # No curriculum tree for this syllabus yet (all A-Level students today,
+    # parked as P-03). An extraction call here could only return
+    # "unmatched" rows -- money spent on noise. Nothing is written, so once
+    # the tree exists the next run picks these lessons up automatically.
+    if len(nodes) == 0:
+        return "out_of_scope", f"skipped (no curriculum tree for {syllabus} yet)"
+
+    if dry_run:
+        return "would_ingest", f"would ingest -> student={student_id}"
 
     raw_text = export_transcript_text(drive_service, drive_file_id)
     transcript_body = extract_transcript_body(raw_text)
@@ -341,47 +424,101 @@ def ingest_one(
     date = transcript["createdTime"][:10]
     lesson_id = insert_lesson(connection, drive_file_id, student_id, date, transcript_path)
     write_coverage(connection, lesson_id, student_id, coverage)
+    mark_needs_review_resolved(connection, drive_file_id)
 
-    return f"ingested -> student={student_id}, {len(coverage)} coverage row(s)"
+    return "ingested", f"ingested -> student={student_id}, {len(coverage)} coverage row(s)"
+
+
+def run_ingest(
+    connection: sqlite3.Connection,
+    student_filter: str | None = None,
+    dry_run: bool = False,
+    interactive: bool = True,
+    log=print,
+) -> dict[str, int]:
+    """Ingest every new lesson transcript Meet has written to Drive.
+
+    Returns a count per outcome (known, needs_review, out_of_scope,
+    would_ingest, ingested, failed, held, not_a_lesson) so the nightly refresh
+    can summarise the run. `log` receives one line per file considered.
+    """
+    drive_service = get_drive_service(interactive)
+    anthropic_client = None
+    if not dry_run:
+        anthropic_client = anthropic.Anthropic(api_key=load_api_key())
+    transcripts = list_all_meet_transcripts(drive_service)
+
+    counts = {
+        "not_a_lesson": 0,
+        "known": 0,
+        "needs_review": 0,
+        "out_of_scope": 0,
+        "would_ingest": 0,
+        "ingested": 0,
+        "failed": 0,
+        "held": 0,
+    }
+    for transcript in transcripts:
+        if not is_lesson_title(transcript["name"]):
+            counts["not_a_lesson"] += 1
+            continue
+        if student_filter is not None:
+            resolved_student_id, _ = resolve_student(connection, transcript["name"])
+            if resolved_student_id != student_filter:
+                continue
+        failed_attempts = count_failed_attempts(connection, transcript["id"])
+        if failed_attempts >= MAX_FAILED_ATTEMPTS:
+            counts["held"] += 1
+            log(f"{transcript['name']!r}: HELD after {failed_attempts} failed attempts -- see needs_review")
+            continue
+        try:
+            outcome, detail = ingest_one(connection, drive_service, anthropic_client, transcript, dry_run)
+        except Exception as error:
+            # One bad transcript (empty doc, extraction failure, transient
+            # API error, ...) must not stop every other transcript in this
+            # batch from being processed. Record it and move on; the next
+            # run retries it (nothing was committed for it), up to
+            # MAX_FAILED_ATTEMPTS.
+            reason = f"{FAILURE_PREFIX}{type(error).__name__}: {error}"
+            record_needs_review(connection, transcript["id"], transcript["name"], reason, deduplicate=False)
+            outcome = "failed"
+            detail = f"FAILED (attempt {failed_attempts + 1} of {MAX_FAILED_ATTEMPTS}), logged to needs_review -- {reason}"
+        counts[outcome] += 1
+        # Already-known lessons are the bulk of every run after the first;
+        # listing them nightly would bury the lines that matter.
+        if outcome != "known":
+            log(f"{transcript['name']!r}: {detail}")
+
+    return counts
 
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
 
-    # Optional "--student <student_id>" filter restricts the batch to one
-    # student's lessons -- e.g. for a first real-data run, or to re-target
-    # a single student without processing the whole shared Meet Recordings
-    # folder (which also holds unrelated, non-tutoring meetings).
+    # Optional flags:
+    #   --student <student_id>  restrict the batch to one student's lessons
+    #   --dry-run               list what would be ingested; no extraction
+    #                           calls, no database writes, no cost
     student_filter = None
-    if len(sys.argv) > 1 and sys.argv[1] == "--student":
-        student_filter = sys.argv[2]
+    dry_run = False
+    arguments = sys.argv[1:]
+    position = 0
+    while position < len(arguments):
+        if arguments[position] == "--student":
+            student_filter = arguments[position + 1]
+            position += 2
+        elif arguments[position] == "--dry-run":
+            dry_run = True
+            position += 1
+        else:
+            print(f"Unknown argument {arguments[position]!r}")
+            print("Usage: python scripts/ingest.py [--student <student_id>] [--dry-run]")
+            sys.exit(1)
 
     connection = sqlite3.connect(DB_PATH)
     connection.execute("PRAGMA foreign_keys = ON")
     apply_schema(connection)
 
-    drive_service = get_drive_service()
-    anthropic_client = anthropic.Anthropic(api_key=load_api_key())
-    folder_id = find_meet_recordings_folder(drive_service)
-    transcripts = list_transcripts(drive_service, folder_id, page_size=100)
-
-    for transcript in transcripts:
-        if student_filter is not None:
-            resolved_student_id, _ = resolve_student(connection, transcript["name"])
-            if resolved_student_id != student_filter:
-                continue
-        try:
-            result = ingest_one(connection, drive_service, anthropic_client, transcript)
-        except Exception as error:
-            # One bad transcript (empty doc, extraction failure, transient
-            # API error, ...) must not stop every other transcript in this
-            # batch from being processed. Record it and move on; re-running
-            # the script will retry it, since nothing was committed for it.
-            record_needs_review(
-                connection,
-                transcript["id"],
-                transcript["name"],
-                f"{type(error).__name__}: {error}",
-            )
-            result = f"FAILED, logged to needs_review -- {type(error).__name__}: {error}"
-        print(f"{transcript['name']!r}: {result}")
+    counts = run_ingest(connection, student_filter, dry_run)
+    print()
+    print("Summary:", counts)

@@ -11,6 +11,70 @@ symptoms back to these entries, so start there when debugging.
 
 ---
 
+### ADR-016: Lessons from before a student's current syllabus are skipped
+- **Date:** 2026-10-10
+- **Status:** Active
+- **Decision:** `Students.xlsx` gains an optional **Syllabus Since** column (a real date),
+  loaded into `students.syllabus_since`. Ingest skips any lesson dated before it, writing
+  nothing (outcome `before_syllabus`). Blank means every lesson counts. First use:
+  Francis, GCSE until June 2026, A-Level since: `2026-07-01`, which skips his 7 GCSE
+  lessons (26 Apr – 9 Jun). The split was confirmed from content: April–June lessons are
+  angles, circle theorems and mocks with no calculus; from 19 Aug, differentiation in
+  every lesson.
+- **Why:** The syllabus belongs to the student's single roster row, so without this
+  Francis's GCSE lessons would be extracted against the A-Level tree: 7 calls returning
+  `unmatched`. Renaming titles can't help (titles pick the student, not the syllabus).
+  This will happen again whenever a GCSE student continues to A-Level (Twins, Gabriel in
+  2027), so it is a roster field, not a one-off.
+- **Rejected:** Picking the syllabus by lesson date and ingesting the old lessons against
+  GCSE (7 calls, and the A-Level brief's "still open" would mix in GCSE items; possible
+  later upgrade, as nothing is written for skipped lessons); doing nothing (wasted calls,
+  noise rows); a second roster row per student per syllabus (breaks alias matching).
+- **Failure signs:** A returning student's first lessons on a new syllabus missing (date set
+  too late); old-syllabus lessons showing `unmatched`-heavy rows (date missing or too
+  early); `build_roster.py` failing with "'Syllabus Since' ... is not a date" (typed as text).
+- **Cost impact:** Saves 7 calls now; none ongoing.
+- **Revisit if:** Theo wants a student's earlier-syllabus history visible (switch to
+  syllabus-by-date), or the Excel Table range is extended to cover the new columns.
+
+---
+
+### ADR-015: A-Level plan: full tree, pilot by hand, then backfill; inactive students skipped
+- **Date:** 2026-10-10
+- **Status:** Active
+- **Decision:** A-Level (P-03) is built in five gated steps: (1) a brake: ingest only runs
+  a syllabus unattended if it is listed in `AUTO_INGEST_SYLLABUSES` (`ingest.py`; GCSE only
+  today), naming a student with `--student` is the explicit opt-in, and `--limit N` caps a
+  run at N lessons, newest first; (2) the tree from Pearson's official Edexcel A Level
+  Mathematics (9MA0) spec PDF, fetched into `/specs/`, with a completeness report;
+  (3) labels + sub-skills with the GCSE technique, Pure reviewed first but Pure,
+  Statistics **and** Mechanics all built before any backfill; (4) pilot: newest lesson
+  for each of Francis, Saska, Daniel by hand, Theo reads the briefs; (5) dry-run, priced
+  cost estimate, backfill, then add the syllabus to `AUTO_INGEST_SYLLABUSES`. Node IDs are
+  the spec reference verbatim with a paper prefix (`P7.3`, `S2.1`, `M8.2`), since Pure and
+  Statistics both number from 1. Ingest also now skips **inactive** students (Ben,
+  Himmut: 19 docs) with nothing written. Separately, a tree whose nodes are loaded but
+  whose sub-skills are not yet counts as no tree, so no call runs against an empty list.
+- **Why:** The refresh runs on every unlock, so loading the tree alone would have ingested
+  all 44 active A-Level docs at once before a single A-Level brief had been checked.
+  Building the whole tree before backfill avoids a second paid re-extract for
+  Stats/Mechanics lessons that would otherwise come back `unmatched`. Inactive students'
+  briefs aren't read, so their calls are pure cost.
+- **Rejected:** A per-run cap on the nightly refresh as the brake (still drains the backlog
+  unattended before the pilot is judged); Pure-only tree first (cheaper review, but a
+  re-extract later); ingesting inactive students for completeness; hand-transcribing the
+  spec as with GCSE (Pearson's PDF is real text); bare spec refs as IDs (collide).
+- **Failure signs:** An A-Level student's lessons never arrive after the tree is loaded
+  (dry-run says `held (... not in AUTO_INGEST_SYLLABUSES yet)`; step 5 not done); a
+  returning student's lessons missing (still `Active = 0` in `Students.xlsx`); A-Level
+  briefs full of `unmatched` (tree/label quality, so look at the pilot again).
+- **Cost impact:** Saves 19 calls (inactive students). Backfill of 44 calls is deliberate,
+  priced at step 5. The pilot is 3 calls.
+- **Revisit if:** Further Maths students join (second tree), or the A-Level sub-skill list
+  grows so long that extraction accuracy drops (ADR-003's revisit trigger).
+
+---
+
 ### ADR-014: Lesson summary is 4–6 skimmable bullets with bold key phrases and italic maths
 - **Date:** 2026-10-10
 - **Status:** Active (refines the summary *format* in ADR-012; the rest of ADR-012 stands)

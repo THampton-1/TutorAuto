@@ -177,7 +177,8 @@ without reconstructing it. Type hints on function signatures.
                    see "How I consume the output"; gitignored
 /Students.xlsx     roster, hand-edited — students, exam, grade prediction, confidence, notes
 /scripts/          drive_client.py, build_curriculum.py, build_roster.py, schema.sql,
-                   ingest.py, brief.py, build_index.py, refresh.py (nightly entry point)
+                   ingest.py, brief.py, build_index.py, refresh.py (nightly entry point),
+                   extract_alevel_spec.py (one-off: A-Level PDF → nodes.json)
 /tests/            pytest tests for the pure logic in /scripts (no live API calls)
 /.secrets/         OAuth client secret and token — gitignored
 ```
@@ -214,16 +215,21 @@ arbitrary titles; the gate plus the roster lookup below is the whole mechanism.
 4. Resolve the student: lowercase the file title, match whole words against the alias list
    in `aliases`. Exactly one match proceeds. Zero matches or more than one goes to
    `needs_review` once (never duplicated on later runs) and is left alone.
-5. Look up that student's syllabus and load the valid sub-skill IDs for it. If the syllabus
-   has no curriculum tree yet (A-Level today, P-03), skip without writing anything; the
-   lesson is picked up automatically once the tree exists.
+5. Look up that student's syllabus and load the valid sub-skill IDs for it. Skip without
+   writing anything if the student is inactive, if the lesson predates the student's
+   `Syllabus Since` date (e.g. a former GCSE student's old lessons, ADR-016), if the
+   syllabus has no curriculum tree
+   (with sub-skills) yet (A-Level today, P-03), or if the syllabus isn't in
+   `AUTO_INGEST_SYLLABUSES` and the run didn't name the student with `--student`
+   (ADR-015). A skipped lesson is picked up automatically once the reason goes away.
 6. Export the Doc to plain text.
 7. Resolve the date from the Drive `createdTime` field. Do not parse dates from titles —
    "week 17" is not a date.
 8. One extraction call with the transcript body.
 
 `python scripts/ingest.py --dry-run` lists what would be ingested with no API calls and no
-writes. Use it before any run that might be large.
+writes. Use it before any run that might be large. `--limit N` stops after N lessons,
+newest first (e.g. `--student francis --limit 1` for a pilot).
 
 ## Schema
 
@@ -234,7 +240,7 @@ declaring tables inline. Summary:
 ```sql
 curriculum_nodes(node_id PK, syllabus, module, topic, spec_order, stretch_content)
 students(student_id PK, name, exam, year_of_study, syllabus, exam_board, exam_date,
-         grade_prediction, confidence_level, notes)
+         grade_prediction, confidence_level, notes, active, syllabus_since)
 aliases(alias PK, student_id)
 lessons(lesson_id PK, drive_file_id UNIQUE, student_id, date,
         transcript_path, processed_at)
@@ -332,7 +338,7 @@ then read the linked ADR before changing anything.
 | Index warns the refresh is hours old | Task Scheduler → task `TutorAuto nightly refresh` → Last Run Result; was the laptop off? | ADR-009, ADR-011 |
 | Log shows a run that hung for hours, or "read operation timed out" | Laptop slept mid-run; Drive calls retry, and the next unlock retries the whole run | ADR-011 |
 | Log says "Drive login needed" | Run `python scripts/drive_client.py` by hand once to log in | ADR-009 |
-| A lesson is missing from a brief | 1) title gate: does it start `Lesson:` / `W<n>`? 2) `needs_review` (alias not matched) 3) student's syllabus has no tree (P-03) 4) did Meet put it somewhere new in Drive? | ADR-007, ADR-006 |
+| A lesson is missing from a brief | 1) title gate: does it start `Lesson:` / `W<n>`? 2) `needs_review` (alias not matched) 3) student's syllabus has no tree (P-03), or isn't in `AUTO_INGEST_SYLLABUSES` yet 4) student marked inactive 5) did Meet put it somewhere new in Drive? | ADR-007, ADR-006, ADR-015 |
 | Same lesson appears twice | Two Drive Docs for one lesson (restarted meeting, Transcript + Notes by Gemini) | ADR-006 |
 | Brief files with odd names / too many files | Naming rule: one file per lesson date | ADR-008 |
 | Index card link broken, or a brief stopped updating | Briefs live in `briefs/<id>/`; a top-level `<id>_latest.html` is a stale leftover | ADR-010 |
@@ -341,8 +347,8 @@ then read the linked ADR before changing anything.
 
 ## Out of scope for v1
 
-- A-Level curriculum tree — A-Level students are on the roster but ingest skips their
-  lessons until a tree exists (P-03)
+- ~~A-Level curriculum tree~~ — now in progress (P-03, ADR-015): 89 nodes loaded
+  2026-10-10; sub-skills, pilot and backfill to follow
 
 - Payment logging and reminders
 - A prerequisite graph between nodes (the spec does not encode this; I will add it by hand

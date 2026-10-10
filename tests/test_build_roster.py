@@ -54,3 +54,21 @@ def test_unrecognised_exam_type_raises():
         assert False, "expected ValueError"
     except ValueError:
         pass
+
+
+def test_syllabus_since_read_from_date_cell():
+    import datetime
+    record = {"Name": "Francis", "Exam": "A Level", "Syllabus Since": datetime.datetime(2026, 7, 1)}
+    assert build_student_row(record)["syllabus_since"] == "2026-07-01"
+
+
+def test_syllabus_since_blank_means_every_lesson_counts():
+    record = {"Name": "Saska", "Exam": "A Level"}
+    assert build_student_row(record)["syllabus_since"] is None
+
+
+def test_syllabus_since_rejects_non_dates():
+    import pytest
+    record = {"Name": "Francis", "Exam": "A Level", "Syllabus Since": "September"}
+    with pytest.raises(ValueError):
+        build_student_row(record)

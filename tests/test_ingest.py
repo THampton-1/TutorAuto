@@ -6,6 +6,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "scripts
 
 from ingest import (
     build_output_schema,
+    check_student_in_scope,
     count_failed_attempts,
     insert_lesson,
     is_lesson_title,
@@ -196,3 +197,38 @@ def test_insert_lesson_and_write_coverage_store_narration_and_quote():
 def test_summary_bullets_stored_one_per_line():
     text = summary_bullets_to_text(["**Covered** surds", "  ", "Struggled with\n*√3*"])
     assert text == "**Covered** surds\nStruggled with *√3*"
+
+
+def test_inactive_student_is_skipped_before_anything_else():
+    skip = check_student_in_scope(0, "edexcel_gcse_higher", 182, allow_any_syllabus=True)
+    assert skip[0] == "inactive"
+
+
+def test_syllabus_with_nodes_but_no_sub_skills_counts_as_no_tree():
+    skip = check_student_in_scope(1, "edexcel_alevel_maths", 0, allow_any_syllabus=True)
+    assert skip[0] == "out_of_scope"
+
+
+def test_new_syllabus_is_held_from_unattended_runs():
+    skip = check_student_in_scope(1, "edexcel_alevel_maths", 300, allow_any_syllabus=False)
+    assert skip[0] == "not_enabled"
+
+
+def test_naming_the_student_opts_a_new_syllabus_in():
+    assert check_student_in_scope(1, "edexcel_alevel_maths", 300, allow_any_syllabus=True) is None
+
+
+def test_lesson_before_syllabus_start_is_skipped():
+    skip = check_student_in_scope(
+        1, "edexcel_alevel_maths", 300, True, lesson_date="2026-06-09", syllabus_since="2026-07-01"
+    )
+    assert skip[0] == "before_syllabus"
+
+
+def test_lesson_on_or_after_syllabus_start_proceeds():
+    assert check_student_in_scope(1, "edexcel_alevel_maths", 300, True, "2026-07-01", "2026-07-01") is None
+    assert check_student_in_scope(1, "edexcel_alevel_maths", 300, True, "2026-09-04", "2026-07-01") is None
+
+
+def test_enabled_syllabus_proceeds_unattended():
+    assert check_student_in_scope(1, "edexcel_gcse_higher", 182, allow_any_syllabus=False) is None

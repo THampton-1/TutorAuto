@@ -28,6 +28,7 @@ _ADDED_COLUMNS = [
     ("students", "active", "INTEGER NOT NULL DEFAULT 1"),
     ("lessons", "summary", "TEXT"),
     ("coverage_events", "note", "TEXT"),
+    ("students", "syllabus_since", "TEXT"),
 ]
 
 

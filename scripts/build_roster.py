@@ -88,18 +88,33 @@ def read_roster(roster_path: pathlib.Path) -> list[dict]:
     return students
 
 
+def to_iso_date(value: object) -> str | None:
+    # Excel hands back real date cells as datetime; anything typed as text
+    # is passed through as-is.
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value.date().isoformat()
+    return str(value)
+
+
 def build_student_row(record: dict) -> dict:
     name = record["Name"]
     exam = record["Exam"]
     if exam not in EXAM_TO_SYLLABUS:
         raise ValueError(f"Unrecognised exam type {exam!r} for student {name!r}")
 
-    exam_date = record.get("Exam Date")
-    exam_date_str = None
-    if isinstance(exam_date, datetime.datetime):
-        exam_date_str = exam_date.date().isoformat()
-    elif exam_date is not None:
-        exam_date_str = str(exam_date)
+    exam_date_str = to_iso_date(record.get("Exam Date"))
+
+    # Optional column: when a student moved onto their current syllabus
+    # (e.g. GCSE -> A-Level). Must be a real date, because ingest compares
+    # it against lesson dates as text (ADR-016).
+    syllabus_since = to_iso_date(record.get("Syllabus Since"))
+    if syllabus_since is not None:
+        try:
+            datetime.date.fromisoformat(syllabus_since)
+        except ValueError:
+            raise ValueError(f"'Syllabus Since' for {name!r} is not a date: {syllabus_since!r}")
 
     return {
         "student_id": slugify(name),
@@ -113,6 +128,7 @@ def build_student_row(record: dict) -> dict:
         "confidence_level": record.get("Confidence Level"),
         "notes": record.get("Notes"),
         "active": parse_active(record.get("Active")),
+        "syllabus_since": syllabus_since,
     }
 
 
@@ -122,11 +138,13 @@ def write_students(connection: sqlite3.Connection, student_rows: list[dict]) -> 
             """
             INSERT INTO students (
                 student_id, name, exam, year_of_study, syllabus,
-                exam_board, exam_date, grade_prediction, confidence_level, notes, active
+                exam_board, exam_date, grade_prediction, confidence_level, notes, active,
+                syllabus_since
             )
             VALUES (
                 :student_id, :name, :exam, :year_of_study, :syllabus,
-                :exam_board, :exam_date, :grade_prediction, :confidence_level, :notes, :active
+                :exam_board, :exam_date, :grade_prediction, :confidence_level, :notes, :active,
+                :syllabus_since
             )
             ON CONFLICT(student_id) DO UPDATE SET
                 name = excluded.name,
@@ -138,7 +156,8 @@ def write_students(connection: sqlite3.Connection, student_rows: list[dict]) -> 
                 grade_prediction = excluded.grade_prediction,
                 confidence_level = excluded.confidence_level,
                 notes = excluded.notes,
-                active = excluded.active
+                active = excluded.active,
+                syllabus_since = excluded.syllabus_since
             """,
             student,
         )

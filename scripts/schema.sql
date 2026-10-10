@@ -41,7 +41,11 @@ CREATE TABLE IF NOT EXISTS students (
     -- Whether this student is currently being taught. Inactive students stay
     -- in the roster (history is preserved) but are skipped by bulk tooling.
     -- Added after first release via schema_migrate.py on existing databases.
-    active INTEGER NOT NULL DEFAULT 1
+    active INTEGER NOT NULL DEFAULT 1,
+    -- ISO date this student started their current syllabus, e.g. a former
+    -- GCSE student now on A-Level. Lessons before it are skipped at ingest
+    -- (ADR-016). NULL means every lesson counts.
+    syllabus_since TEXT
 );
 
 -- One row per title variant that should resolve to a student. Seeded with

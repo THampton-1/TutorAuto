@@ -429,18 +429,68 @@ def mark_needs_review_resolved(connection: sqlite3.Connection, drive_file_id: st
     connection.commit()
 
 
+# Syllabuses the nightly refresh may ingest unattended (ADR-015). A new tree
+# (A-Level, P-03) is added here only after a hand-run pilot of a few lessons
+# (--student <id> --limit N) has produced briefs Theo is happy with. Without
+# this, loading a tree would make the next refresh ingest that syllabus's
+# whole backlog (~60 paid calls for A-Level) at once -- and a tree whose
+# sub-skills weren't loaded yet would be extracted against an empty list.
+AUTO_INGEST_SYLLABUSES = ["edexcel_gcse_higher"]
+
+
+def check_student_in_scope(
+    active: int,
+    syllabus: str,
+    sub_skill_count: int,
+    allow_any_syllabus: bool,
+    lesson_date: str = "",
+    syllabus_since: str | None = None,
+) -> tuple[str, str] | None:
+    """Decide, before any cost, whether a resolved student's lesson goes ahead.
+
+    Returns (outcome, detail) for a lesson that must be skipped, or None if
+    it may proceed. Nothing is written for a skipped lesson, so it is picked
+    up automatically on a later run once the reason goes away.
+    """
+    # Inactive students' lessons would cost a call each for briefs nobody
+    # reads. Flipping Active back to 1 in Students.xlsx brings their backlog
+    # in on the next run.
+    if active == 0:
+        return "inactive", "skipped (student marked inactive)"
+
+    # A lesson from before the student's current syllabus (e.g. Francis's
+    # GCSE lessons, now he's on A-Level) can't be mapped onto that tree.
+    # ISO dates compare correctly as plain text.
+    if syllabus_since is not None and lesson_date < syllabus_since:
+        return "before_syllabus", f"skipped (before {syllabus} start, {syllabus_since})"
+
+    # No curriculum tree for this syllabus yet, or nodes loaded but their
+    # sub-skills not yet (the model selects sub-skill IDs, so that is no
+    # tree either). A call here could only return "unmatched" rows.
+    if sub_skill_count == 0:
+        return "out_of_scope", f"skipped (no curriculum tree for {syllabus} yet)"
+
+    # A tree exists but hasn't been signed off for unattended runs. Naming
+    # the student on the command line (--student) is the explicit opt-in.
+    if syllabus not in AUTO_INGEST_SYLLABUSES and not allow_any_syllabus:
+        return "not_enabled", f"held ({syllabus} not in AUTO_INGEST_SYLLABUSES yet; pilot with --student and --limit)"
+
+    return None
+
+
 def ingest_one(
     connection: sqlite3.Connection,
     drive_service,
     anthropic_client: anthropic.Anthropic | None,
     transcript: dict,
     dry_run: bool = False,
+    allow_any_syllabus: bool = False,
 ) -> tuple[str, str]:
     """Process one Drive file. Returns (outcome, human-readable detail).
 
-    outcome is one of: known, needs_review, out_of_scope, would_ingest,
-    ingested. dry_run stops just before anything costs money or writes to
-    the database.
+    outcome is one of: known, needs_review, inactive, before_syllabus, out_of_scope,
+    not_enabled, would_ingest, ingested. dry_run stops just before anything
+    costs money or writes to the database.
     """
     drive_file_id = transcript["id"]
     file_title = transcript["name"]
@@ -454,16 +504,21 @@ def ingest_one(
             record_needs_review(connection, drive_file_id, file_title, reason)
         return "needs_review", f"needs_review ({reason})"
 
-    cursor = connection.execute("SELECT syllabus FROM students WHERE student_id = ?", (student_id,))
-    syllabus = cursor.fetchone()[0]
+    cursor = connection.execute(
+        "SELECT syllabus, active, syllabus_since FROM students WHERE student_id = ?", (student_id,)
+    )
+    syllabus, active, syllabus_since = cursor.fetchone()
     nodes = load_valid_nodes(connection, syllabus)
 
-    # No curriculum tree for this syllabus yet (all A-Level students today,
-    # parked as P-03). An extraction call here could only return
-    # "unmatched" rows -- money spent on noise. Nothing is written, so once
-    # the tree exists the next run picks these lessons up automatically.
-    if len(nodes) == 0:
-        return "out_of_scope", f"skipped (no curriculum tree for {syllabus} yet)"
+    sub_skill_count = 0
+    for node in nodes:
+        sub_skill_count += len(node["sub_skills"])
+    lesson_date = transcript["createdTime"][:10]
+    skip = check_student_in_scope(
+        active, syllabus, sub_skill_count, allow_any_syllabus, lesson_date, syllabus_since
+    )
+    if skip is not None:
+        return skip
 
     if dry_run:
         return "would_ingest", f"would ingest -> student={student_id}"
@@ -481,8 +536,7 @@ def ingest_one(
     extraction = call_extraction(anthropic_client, transcript_body, nodes)
     coverage = extraction["coverage"]
 
-    date = transcript["createdTime"][:10]
-    lesson_id = insert_lesson(connection, drive_file_id, student_id, date, transcript_path, summary_bullets_to_text(extraction["lesson_summary"]))
+    lesson_id = insert_lesson(connection, drive_file_id, student_id, lesson_date, transcript_path, summary_bullets_to_text(extraction["lesson_summary"]))
     write_coverage(connection, lesson_id, student_id, coverage)
     mark_needs_review_resolved(connection, drive_file_id)
 
@@ -495,12 +549,15 @@ def run_ingest(
     dry_run: bool = False,
     interactive: bool = True,
     log=print,
+    limit: int | None = None,
 ) -> dict[str, int]:
     """Ingest every new lesson transcript Meet has written to Drive.
 
-    Returns a count per outcome (known, needs_review, out_of_scope,
-    would_ingest, ingested, failed, held, not_a_lesson) so the nightly refresh
-    can summarise the run. `log` receives one line per file considered.
+    Returns a count per outcome (known, needs_review, inactive, before_syllabus, out_of_scope,
+    not_enabled, would_ingest, ingested, failed, held, not_a_lesson) so the
+    nightly refresh can summarise the run. `log` receives one line per file
+    considered. `limit` stops the run after that many extraction attempts
+    (or, in a dry run, that many would-ingest lessons), newest first.
     """
     drive_service = get_drive_service(interactive)
     anthropic_client = None
@@ -512,13 +569,24 @@ def run_ingest(
         "not_a_lesson": 0,
         "known": 0,
         "needs_review": 0,
+        "inactive": 0,
+        "before_syllabus": 0,
         "out_of_scope": 0,
+        "not_enabled": 0,
         "would_ingest": 0,
         "ingested": 0,
         "failed": 0,
         "held": 0,
     }
+    # Naming a student by hand is the opt-in for a syllabus not yet in
+    # AUTO_INGEST_SYLLABUSES (the pilot path, ADR-015).
+    allow_any_syllabus = student_filter is not None
     for transcript in transcripts:
+        if limit is not None:
+            attempts = counts["ingested"] + counts["failed"] + counts["would_ingest"]
+            if attempts >= limit:
+                log(f"Stopped after {attempts} lesson(s) (--limit {limit}).")
+                break
         if not is_lesson_title(transcript["name"]):
             counts["not_a_lesson"] += 1
             continue
@@ -532,7 +600,9 @@ def run_ingest(
             log(f"{transcript['name']!r}: HELD after {failed_attempts} failed attempts -- see needs_review")
             continue
         try:
-            outcome, detail = ingest_one(connection, drive_service, anthropic_client, transcript, dry_run)
+            outcome, detail = ingest_one(
+                connection, drive_service, anthropic_client, transcript, dry_run, allow_any_syllabus
+            )
         except Exception as error:
             # One bad transcript (empty doc, extraction failure, transient
             # API error, ...) must not stop every other transcript in this
@@ -559,8 +629,10 @@ if __name__ == "__main__":
     #   --student <student_id>  restrict the batch to one student's lessons
     #   --dry-run               list what would be ingested; no extraction
     #                           calls, no database writes, no cost
+    #   --limit <n>             stop after n lessons (newest first)
     student_filter = None
     dry_run = False
+    limit = None
     arguments = sys.argv[1:]
     position = 0
     while position < len(arguments):
@@ -570,15 +642,18 @@ if __name__ == "__main__":
         elif arguments[position] == "--dry-run":
             dry_run = True
             position += 1
+        elif arguments[position] == "--limit":
+            limit = int(arguments[position + 1])
+            position += 2
         else:
             print(f"Unknown argument {arguments[position]!r}")
-            print("Usage: python scripts/ingest.py [--student <student_id>] [--dry-run]")
+            print("Usage: python scripts/ingest.py [--student <student_id>] [--limit <n>] [--dry-run]")
             sys.exit(1)
 
     connection = sqlite3.connect(DB_PATH)
     connection.execute("PRAGMA foreign_keys = ON")
     apply_schema(connection)
 
-    counts = run_ingest(connection, student_filter, dry_run)
+    counts = run_ingest(connection, student_filter, dry_run, limit=limit)
     print()
     print("Summary:", counts)

@@ -1,0 +1,908 @@
+[
+  {
+    "node_id": "P1.1",
+    "spec_ref": "1.1",
+    "module": "Proof",
+    "topic": "Understand and use the structure of mathematical proof, proceeding from given assumptions through a series of logical steps to a conclusion; use methods of proof, including: Proof by deduction; Proof by exhaustion; Disproof by counter example; Proof by contradiction (including proof of the irrationality of √2 and the infinity of primes, and application to unfamiliar proofs).",
+    "spec_order": 1,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 15,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P2.1",
+    "spec_ref": "2.1",
+    "module": "Algebra and functions",
+    "topic": "Understand and use the laws of indices for all rational exponents.",
+    "spec_order": 2,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 16
+  },
+  {
+    "node_id": "P2.2",
+    "spec_ref": "2.2",
+    "module": "Algebra and functions",
+    "topic": "Use and manipulate surds, including rationalising the denominator.",
+    "spec_order": 3,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 16
+  },
+  {
+    "node_id": "P2.3",
+    "spec_ref": "2.3",
+    "module": "Algebra and functions",
+    "topic": "Work with quadratic functions and their graphs. The discriminant of a quadratic function, including the conditions for real and repeated roots. Completing the square. Solution of quadratic equations including solving quadratic equations in a function of the unknown.",
+    "spec_order": 4,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 16
+  },
+  {
+    "node_id": "P2.4",
+    "spec_ref": "2.4",
+    "module": "Algebra and functions",
+    "topic": "Solve simultaneous equations in two variables by elimination and by substitution, including one linear and one quadratic equation.",
+    "spec_order": 5,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 16
+  },
+  {
+    "node_id": "P2.5",
+    "spec_ref": "2.5",
+    "module": "Algebra and functions",
+    "topic": "Solve linear and quadratic inequalities in a single variable and interpret such inequalities graphically, including inequalities with brackets and fractions. Express solutions through correct use of ‘and’ and ‘or’, or through set notation. Represent linear and quadratic inequalities such as y > x + 1 and y > ax² + bx + c graphically.",
+    "spec_order": 6,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 17
+  },
+  {
+    "node_id": "P2.6",
+    "spec_ref": "2.6",
+    "module": "Algebra and functions",
+    "topic": "Manipulate polynomials algebraically, including expanding brackets and collecting like terms, factorisation and simple algebraic division; use of the factor theorem. Simplify rational expressions, including by factorising and cancelling, and algebraic division (by linear expressions only).",
+    "spec_order": 7,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 17
+  },
+  {
+    "node_id": "P2.7",
+    "spec_ref": "2.7",
+    "module": "Algebra and functions",
+    "topic": "Understand and use graphs of functions; sketch curves defined by simple equations including polynomials. The modulus of a linear function. y = a/x and y = a/x² (including their vertical and horizontal asymptotes). Interpret algebraic solution of equations graphically; use intersection points of graphs to solve equations. Understand and use proportional relationships and their graphs.",
+    "spec_order": 8,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 18,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P2.8",
+    "spec_ref": "2.8",
+    "module": "Algebra and functions",
+    "topic": "Understand and use composite functions; inverse functions and their graphs.",
+    "spec_order": 9,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 19
+  },
+  {
+    "node_id": "P2.9",
+    "spec_ref": "2.9",
+    "module": "Algebra and functions",
+    "topic": "Understand the effect of simple transformations on the graph of y = f(x), including sketching associated graphs: y = af(x), y = f(x) + a, y = f(x + a), y = f(ax) and combinations of these transformations",
+    "spec_order": 10,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 19
+  },
+  {
+    "node_id": "P2.10",
+    "spec_ref": "2.10",
+    "module": "Algebra and functions",
+    "topic": "Decompose rational functions into partial fractions (denominators not more complicated than squared linear terms and with no more than 3 terms, numerators constant or linear).",
+    "spec_order": 11,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 19
+  },
+  {
+    "node_id": "P2.11",
+    "spec_ref": "2.11",
+    "module": "Algebra and functions",
+    "topic": "Use of functions in modelling, including consideration of limitations and refinements of the models.",
+    "spec_order": 12,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 20
+  },
+  {
+    "node_id": "P3.1",
+    "spec_ref": "3.1",
+    "module": "Coordinate geometry in the (x, y) plane",
+    "topic": "Understand and use the equation of a straight line, including the forms y – y₁ = m(x – x₁) and ax + by + c = 0; Gradient conditions for two straight lines to be parallel or perpendicular. Be able to use straight line models in a variety of contexts.",
+    "spec_order": 13,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 20
+  },
+  {
+    "node_id": "P3.2",
+    "spec_ref": "3.2",
+    "module": "Coordinate geometry in the (x, y) plane",
+    "topic": "Understand and use the coordinate geometry of the circle including using the equation of a circle in the form (x – a)² + (y – b)² = r² Completing the square to find the centre and radius of a circle; use of the following properties: ● the angle in a semicircle is a right angle ● the perpendicular from the centre to a chord bisects the chord ● the radius of a circle at a given point on its circumference is perpendicular to the tangent to the circle at that point.",
+    "spec_order": 14,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 20
+  },
+  {
+    "node_id": "P3.3",
+    "spec_ref": "3.3",
+    "module": "Coordinate geometry in the (x, y) plane",
+    "topic": "Understand and use the parametric equations of curves and conversion between Cartesian and parametric forms.",
+    "spec_order": 15,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 21
+  },
+  {
+    "node_id": "P3.4",
+    "spec_ref": "3.4",
+    "module": "Coordinate geometry in the (x, y) plane",
+    "topic": "Use parametric equations in modelling in a variety of contexts.",
+    "spec_order": 16,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 21
+  },
+  {
+    "node_id": "P4.1",
+    "spec_ref": "4.1",
+    "module": "Sequences and series",
+    "topic": "Understand and use the binomial expansion of (a + bx)ⁿ for positive integer n; the notations n! and ⁿCᵣ link to binomial probabilities. Extend to any rational n, including its use for approximation; be aware that the expansion is valid for |bx/a| < 1 (proof not required).",
+    "spec_order": 17,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 21,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P4.2",
+    "spec_ref": "4.2",
+    "module": "Sequences and series",
+    "topic": "Work with sequences including those given by a formula for the nth term and those generated by a simple relation of the form xₙ₊₁ = f(xₙ); increasing sequences; decreasing sequences; periodic sequences.",
+    "spec_order": 18,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 22,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P4.3",
+    "spec_ref": "4.3",
+    "module": "Sequences and series",
+    "topic": "Understand and use sigma notation for sums of series.",
+    "spec_order": 19,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 22
+  },
+  {
+    "node_id": "P4.4",
+    "spec_ref": "4.4",
+    "module": "Sequences and series",
+    "topic": "Understand and work with arithmetic sequences and series, including the formulae for nth term and the sum to n terms",
+    "spec_order": 20,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 22
+  },
+  {
+    "node_id": "P4.5",
+    "spec_ref": "4.5",
+    "module": "Sequences and series",
+    "topic": "Understand and work with geometric sequences and series, including the formulae for the nth term and the sum of a finite geometric series; the sum to infinity of a convergent geometric series, including the use of |r| < 1; modulus notation",
+    "spec_order": 21,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 22
+  },
+  {
+    "node_id": "P4.6",
+    "spec_ref": "4.6",
+    "module": "Sequences and series",
+    "topic": "Use sequences and series in modelling.",
+    "spec_order": 22,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 22
+  },
+  {
+    "node_id": "P5.1",
+    "spec_ref": "5.1",
+    "module": "Trigonometry",
+    "topic": "Understand and use the definitions of sine, cosine and tangent for all arguments; the sine and cosine rules; the area of a triangle in the form ½ab sin C. Work with radian measure, including use for arc length and area of sector.",
+    "spec_order": 23,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 23,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P5.2",
+    "spec_ref": "5.2",
+    "module": "Trigonometry",
+    "topic": "Understand and use the standard small angle approximations of sine, cosine and tangent: sin θ ≈ θ, cos θ ≈ 1 − θ²/2, tan θ ≈ θ, where θ is in radians.",
+    "spec_order": 24,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 23,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P5.3",
+    "spec_ref": "5.3",
+    "module": "Trigonometry",
+    "topic": "Understand and use the sine, cosine and tangent functions; their graphs, symmetries and periodicity. Know and use exact values of sin and cos for 0, π/6, π/4, π/3, π/2, π and multiples thereof, and exact values of tan for 0, π/6, π/4, π/3, π and multiples thereof.",
+    "spec_order": 25,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 23,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P5.4",
+    "spec_ref": "5.4",
+    "module": "Trigonometry",
+    "topic": "Understand and use the definitions of secant, cosecant and cotangent and of arcsin, arccos and arctan; their relationships to sine, cosine and tangent; understanding of their graphs; their ranges and domains.",
+    "spec_order": 26,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 23
+  },
+  {
+    "node_id": "P5.5",
+    "spec_ref": "5.5",
+    "module": "Trigonometry",
+    "topic": "Understand and use tan θ = sin θ / cos θ. Understand and use sin²θ + cos²θ = 1; sec²θ = 1 + tan²θ and cosec²θ = 1 + cot²θ.",
+    "spec_order": 27,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 24,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P5.6",
+    "spec_ref": "5.6",
+    "module": "Trigonometry",
+    "topic": "Understand and use double angle formulae; use of formulae for sin (A ± B), cos (A ± B), and tan (A ± B), understand geometrical proofs of these formulae. Understand and use expressions for a cosθ+ bsinθ in the equivalent forms of rcos (θ±α) or rsin (θ±α)",
+    "spec_order": 28,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 24
+  },
+  {
+    "node_id": "P5.7",
+    "spec_ref": "5.7",
+    "module": "Trigonometry",
+    "topic": "Solve simple trigonometric equations in a given interval, including quadratic equations in sin, cos and tan and equations involving multiples of the unknown angle.",
+    "spec_order": 29,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 24
+  },
+  {
+    "node_id": "P5.8",
+    "spec_ref": "5.8",
+    "module": "Trigonometry",
+    "topic": "Construct proofs involving trigonometric functions and identities.",
+    "spec_order": 30,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 24
+  },
+  {
+    "node_id": "P5.9",
+    "spec_ref": "5.9",
+    "module": "Trigonometry",
+    "topic": "Use trigonometric functions to solve problems in context, including problems involving vectors, kinematics and forces.",
+    "spec_order": 31,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 24
+  },
+  {
+    "node_id": "P6.1",
+    "spec_ref": "6.1",
+    "module": "Exponentials and logarithms",
+    "topic": "Know and use the function aˣ and its graph, where a is positive. Know and use the function eˣ and its graph.",
+    "spec_order": 32,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 25
+  },
+  {
+    "node_id": "P6.2",
+    "spec_ref": "6.2",
+    "module": "Exponentials and logarithms",
+    "topic": "Know that the gradient of eᵏˣ is equal to keᵏˣ and hence understand why the exponential model is suitable in many applications.",
+    "spec_order": 33,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 25
+  },
+  {
+    "node_id": "P6.3",
+    "spec_ref": "6.3",
+    "module": "Exponentials and logarithms",
+    "topic": "Know and use the definition of logₐ x as the inverse of aˣ, where a is positive and x ⩾ 0. Know and use the function ln x and its graph. Know and use ln x as the inverse function of eˣ.",
+    "spec_order": 34,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 25,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P6.4",
+    "spec_ref": "6.4",
+    "module": "Exponentials and logarithms",
+    "topic": "Understand and use the laws of logarithms: logₐ x + logₐ y = logₐ (xy); logₐ x − logₐ y = logₐ (x/y); k logₐ x = logₐ xᵏ (including, for example, k = −1 and k = −½).",
+    "spec_order": 35,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 25,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P6.5",
+    "spec_ref": "6.5",
+    "module": "Exponentials and logarithms",
+    "topic": "Solve equations of the form aˣ =b",
+    "spec_order": 36,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 25
+  },
+  {
+    "node_id": "P6.6",
+    "spec_ref": "6.6",
+    "module": "Exponentials and logarithms",
+    "topic": "Use logarithmic graphs to estimate parameters in relationships of the form y = axⁿ and y = kbˣ, given data for x and y",
+    "spec_order": 37,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 25
+  },
+  {
+    "node_id": "P6.7",
+    "spec_ref": "6.7",
+    "module": "Exponentials and logarithms",
+    "topic": "Understand and use exponential growth and decay; use in modelling (examples may include the use of e in continuous compound interest, radioactive decay, drug concentration decay, exponential growth as a model for population growth); consideration of limitations and refinements of exponential models.",
+    "spec_order": 38,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 26
+  },
+  {
+    "node_id": "P7.1",
+    "spec_ref": "7.1",
+    "module": "Differentiation",
+    "topic": "Understand and use the derivative of f(x) as the gradient of the tangent to the graph of y = f(x) at a general point (x, y); the gradient of the tangent as a limit; interpretation as a rate of change sketching the gradient function for a given curve second derivatives differentiation from first principles for small positive integer powers of x and for sinx and cosx Understand and use the second derivative as the rate of change of gradient; connection to convex and concave sections of curves and points of inflection.",
+    "spec_order": 39,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 26
+  },
+  {
+    "node_id": "P7.2",
+    "spec_ref": "7.2",
+    "module": "Differentiation",
+    "topic": "Differentiate xⁿ, for rational values of n, and related constant multiples, sums and differences. Differentiate eᵏˣ and aᵏˣ, sin kx, cos kx, tan kx and related sums, differences and constant multiples. Understand and use the derivative of ln x.",
+    "spec_order": 40,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 27,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P7.3",
+    "spec_ref": "7.3",
+    "module": "Differentiation",
+    "topic": "Apply differentiation to find gradients, tangents and normals maxima and minima and stationary points. points of inflection Identify where functions are increasing or decreasing.",
+    "spec_order": 41,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 27
+  },
+  {
+    "node_id": "P7.4",
+    "spec_ref": "7.4",
+    "module": "Differentiation",
+    "topic": "Differentiate using the product rule, the quotient rule and the chain rule, including problems involving connected rates of change and inverse functions.",
+    "spec_order": 42,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 28
+  },
+  {
+    "node_id": "P7.5",
+    "spec_ref": "7.5",
+    "module": "Differentiation",
+    "topic": "Differentiate simple functions and relations defined implicitly or parametrically, for first derivative only.",
+    "spec_order": 43,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 28
+  },
+  {
+    "node_id": "P7.6",
+    "spec_ref": "7.6",
+    "module": "Differentiation",
+    "topic": "Construct simple differential equations in pure mathematics and in context, (contexts may include kinematics, population growth and modelling the relationship between price and demand).",
+    "spec_order": 44,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 28
+  },
+  {
+    "node_id": "P8.1",
+    "spec_ref": "8.1",
+    "module": "Integration",
+    "topic": "Know and use the Fundamental Theorem of Calculus",
+    "spec_order": 45,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 28
+  },
+  {
+    "node_id": "P8.2",
+    "spec_ref": "8.2",
+    "module": "Integration",
+    "topic": "Integrate xⁿ (excluding n = −1) and related sums, differences and constant multiples. Integrate eᵏˣ, 1/x, sin kx, cos kx and related sums, differences and constant multiples.",
+    "spec_order": 46,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 28,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P8.3",
+    "spec_ref": "8.3",
+    "module": "Integration",
+    "topic": "Evaluate definite integrals; use a definite integral to find the area under a curve and the area between two curves",
+    "spec_order": 47,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 29
+  },
+  {
+    "node_id": "P8.4",
+    "spec_ref": "8.4",
+    "module": "Integration",
+    "topic": "Understand and use integration as the limit of a sum.",
+    "spec_order": 48,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 29
+  },
+  {
+    "node_id": "P8.5",
+    "spec_ref": "8.5",
+    "module": "Integration",
+    "topic": "Carry out simple cases of integration by substitution and integration by parts; understand these methods as the inverse processes of the chain and product rules respectively (Integration by substitution includes finding a suitable substitution and is limited to cases where one substitution will lead to a function which can be integrated; integration by parts includes more than one application of the method but excludes reduction formulae.)",
+    "spec_order": 49,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 29
+  },
+  {
+    "node_id": "P8.6",
+    "spec_ref": "8.6",
+    "module": "Integration",
+    "topic": "Integrate using partial fractions that are linear in the denominator.",
+    "spec_order": 50,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 29
+  },
+  {
+    "node_id": "P8.7",
+    "spec_ref": "8.7",
+    "module": "Integration",
+    "topic": "Evaluate the analytical solution of simple first order differential equations with separable variables, including finding particular solutions (Separation of variables may require factorisation involving a common factor.)",
+    "spec_order": 51,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 30
+  },
+  {
+    "node_id": "P8.8",
+    "spec_ref": "8.8",
+    "module": "Integration",
+    "topic": "Interpret the solution of a differential equation in the context of solving a problem, including identifying limitations of the solution; includes links to kinematics.",
+    "spec_order": 52,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 30
+  },
+  {
+    "node_id": "P9.1",
+    "spec_ref": "9.1",
+    "module": "Numerical methods",
+    "topic": "Locate roots of f(x) = 0 by considering changes of sign of f(x) in an interval of x on which f(x) is sufficiently well behaved. Understand how change of sign methods can fail.",
+    "spec_order": 53,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 30,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P9.2",
+    "spec_ref": "9.2",
+    "module": "Numerical methods",
+    "topic": "Solve equations approximately using simple iterative methods; be able to draw associated cobweb and staircase diagrams.",
+    "spec_order": 54,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 30
+  },
+  {
+    "node_id": "P9.3",
+    "spec_ref": "9.3",
+    "module": "Numerical methods",
+    "topic": "Solve equations using the Newton-Raphson method and other recurrence relations of the form xₙ₊₁ = g(xₙ). Understand how such methods can fail.",
+    "spec_order": 55,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 30,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "P9.4",
+    "spec_ref": "9.4",
+    "module": "Numerical methods",
+    "topic": "Understand and use numerical integration of functions, including the use of the trapezium rule and estimating the approximate area under a curve and limits that it must lie between.",
+    "spec_order": 56,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 31
+  },
+  {
+    "node_id": "P9.5",
+    "spec_ref": "9.5",
+    "module": "Numerical methods",
+    "topic": "Use numerical methods to solve problems in context.",
+    "spec_order": 57,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 31
+  },
+  {
+    "node_id": "P10.1",
+    "spec_ref": "10.1",
+    "module": "Vectors",
+    "topic": "Use vectors in two dimensions and in three dimensions",
+    "spec_order": 58,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 31
+  },
+  {
+    "node_id": "P10.2",
+    "spec_ref": "10.2",
+    "module": "Vectors",
+    "topic": "Calculate the magnitude and direction of a vector and convert between component form and magnitude/direction form.",
+    "spec_order": 59,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 31
+  },
+  {
+    "node_id": "P10.3",
+    "spec_ref": "10.3",
+    "module": "Vectors",
+    "topic": "Add vectors diagrammatically and perform the algebraic operations of vector addition and multiplication by scalars, and understand their geometrical interpretations.",
+    "spec_order": 60,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 31
+  },
+  {
+    "node_id": "P10.4",
+    "spec_ref": "10.4",
+    "module": "Vectors",
+    "topic": "Understand and use position vectors; calculate the distance between two points represented by position vectors.",
+    "spec_order": 61,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 31
+  },
+  {
+    "node_id": "P10.5",
+    "spec_ref": "10.5",
+    "module": "Vectors",
+    "topic": "Use vectors to solve problems in pure mathematics and in context (including forces).",
+    "spec_order": 62,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 32
+  },
+  {
+    "node_id": "S1.1",
+    "spec_ref": "1.1",
+    "module": "Statistical sampling",
+    "topic": "Understand and use the terms ‘population’ and ‘sample’. Use samples to make informal inferences about the population. Understand and use sampling techniques, including simple random sampling and opportunity sampling. Select or critique sampling techniques in the context of solving a statistical problem, including understanding that different samples can lead to different conclusions about the population.",
+    "spec_order": 63,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 34
+  },
+  {
+    "node_id": "S2.1",
+    "spec_ref": "2.1",
+    "module": "Data presentation and interpretation",
+    "topic": "Interpret diagrams for single-variable data, including understanding that area in a histogram represents frequency. Connect to probability distributions.",
+    "spec_order": 64,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 34
+  },
+  {
+    "node_id": "S2.2",
+    "spec_ref": "2.2",
+    "module": "Data presentation and interpretation",
+    "topic": "Interpret scatter diagrams and regression lines for bivariate data, including recognition of scatter diagrams which include distinct sections of the population (calculations involving regression lines are excluded). Understand informal interpretation of correlation. Understand that correlation does not imply causation.",
+    "spec_order": 65,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 35
+  },
+  {
+    "node_id": "S2.3",
+    "spec_ref": "2.3",
+    "module": "Data presentation and interpretation",
+    "topic": "Interpret measures of central tendency and variation, extending to standard deviation. Be able to calculate standard deviation, including from summary statistics.",
+    "spec_order": 66,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 35
+  },
+  {
+    "node_id": "S2.4",
+    "spec_ref": "2.4",
+    "module": "Data presentation and interpretation",
+    "topic": "Recognise and interpret possible outliers in data sets and statistical diagrams. Select or critique data presentation techniques in the context of a statistical problem. Be able to clean data, including dealing with missing data, errors and outliers.",
+    "spec_order": 67,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 36
+  },
+  {
+    "node_id": "S3.1",
+    "spec_ref": "3.1",
+    "module": "Probability",
+    "topic": "Understand and use mutually exclusive and independent events when calculating probabilities. Link to discrete and continuous distributions.",
+    "spec_order": 68,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 36
+  },
+  {
+    "node_id": "S3.2",
+    "spec_ref": "3.2",
+    "module": "Probability",
+    "topic": "Understand and use conditional probability, including the use of tree diagrams, Venn diagrams, two-way tables. Understand and use the conditional probability formula P(A|B) = P(A ∩ B) / P(B).",
+    "spec_order": 69,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 36,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "S3.3",
+    "spec_ref": "3.3",
+    "module": "Probability",
+    "topic": "Modelling with probability, including critiquing assumptions made and the likely effect of more realistic assumptions.",
+    "spec_order": 70,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 37
+  },
+  {
+    "node_id": "S4.1",
+    "spec_ref": "4.1",
+    "module": "Statistical distributions",
+    "topic": "Understand and use simple, discrete probability distributions (calculation of mean and variance of discrete random variables is excluded), including the binomial distribution, as a model; calculate probabilities using the binomial distribution.",
+    "spec_order": 71,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 37
+  },
+  {
+    "node_id": "S4.2",
+    "spec_ref": "4.2",
+    "module": "Statistical distributions",
+    "topic": "Understand and use the Normal distribution as a model; find probabilities using the Normal distribution Link to histograms, mean, standard deviation, points of inflection and the binomial distribution.",
+    "spec_order": 72,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 37
+  },
+  {
+    "node_id": "S4.3",
+    "spec_ref": "4.3",
+    "module": "Statistical distributions",
+    "topic": "Select an appropriate probability distribution for a context, with appropriate reasoning, including recognising when the binomial or Normal model may not be appropriate.",
+    "spec_order": 73,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 38
+  },
+  {
+    "node_id": "S5.1",
+    "spec_ref": "5.1",
+    "module": "Statistical hypothesis testing",
+    "topic": "Understand and apply the language of statistical hypothesis testing, developed through a binomial model: null hypothesis, alternative hypothesis, significance level, test statistic, 1-tail test, 2-tail test, critical value, critical region, acceptance region, p-value; extend to correlation coefficients as measures of how close data points lie to a straight line. and be able to interpret a given correlation coefficient using a given p-value or critical value (calculation of correlation coefficients is excluded).",
+    "spec_order": 74,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 38
+  },
+  {
+    "node_id": "S5.2",
+    "spec_ref": "5.2",
+    "module": "Statistical hypothesis testing",
+    "topic": "Conduct a statistical hypothesis test for the proportion in the binomial distribution and interpret the results in context. Understand that a sample is being used to make an inference about the population and appreciate that the significance level is the probability of incorrectly rejecting the null hypothesis.",
+    "spec_order": 75,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 39
+  },
+  {
+    "node_id": "S5.3",
+    "spec_ref": "5.3",
+    "module": "Statistical hypothesis testing",
+    "topic": "Conduct a statistical hypothesis test for the mean of a Normal distribution with known, given or assumed variance and interpret the results in context.",
+    "spec_order": 76,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 39
+  },
+  {
+    "node_id": "M6.1",
+    "spec_ref": "6.1",
+    "module": "Quantities and units in mechanics",
+    "topic": "Understand and use fundamental quantities and units in the S.I. system: length, time, mass. Understand and use derived quantities and units: velocity, acceleration, force, weight, moment.",
+    "spec_order": 77,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 39
+  },
+  {
+    "node_id": "M7.1",
+    "spec_ref": "7.1",
+    "module": "Kinematics",
+    "topic": "Understand and use the language of kinematics: position; displacement; distance travelled; velocity; speed; acceleration.",
+    "spec_order": 78,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 40
+  },
+  {
+    "node_id": "M7.2",
+    "spec_ref": "7.2",
+    "module": "Kinematics",
+    "topic": "Understand, use and interpret graphs in kinematics for motion in a straight line: displacement against time and interpretation of gradient; velocity against time and interpretation of gradient and area under the graph.",
+    "spec_order": 79,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 40
+  },
+  {
+    "node_id": "M7.3",
+    "spec_ref": "7.3",
+    "module": "Kinematics",
+    "topic": "Understand, use and derive the formulae for constant acceleration for motion in a straight line. Extend to 2 dimensions using vectors.",
+    "spec_order": 80,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 40
+  },
+  {
+    "node_id": "M7.4",
+    "spec_ref": "7.4",
+    "module": "Kinematics",
+    "topic": "Use calculus in kinematics for motion in a straight line: v = dr/dt, a = dv/dt = d²r/dt²; r = ∫ v dt, v = ∫ a dt. Extend to 2 dimensions using vectors.",
+    "spec_order": 81,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 40,
+    "typed_from_page_image": true
+  },
+  {
+    "node_id": "M7.5",
+    "spec_ref": "7.5",
+    "module": "Kinematics",
+    "topic": "Model motion under gravity in a vertical plane using vectors; projectiles.",
+    "spec_order": 82,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 40
+  },
+  {
+    "node_id": "M8.1",
+    "spec_ref": "8.1",
+    "module": "Forces and Newton’s laws",
+    "topic": "Understand the concept of a force; understand and use Newton’s first law.",
+    "spec_order": 83,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 41
+  },
+  {
+    "node_id": "M8.2",
+    "spec_ref": "8.2",
+    "module": "Forces and Newton’s laws",
+    "topic": "Understand and use Newton’s second law for motion in a straight line (restricted to forces in two perpendicular directions or simple cases of forces given as 2-D vectors); extend to situations where forces need to be resolved (restricted to 2 dimensions).",
+    "spec_order": 84,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 41
+  },
+  {
+    "node_id": "M8.3",
+    "spec_ref": "8.3",
+    "module": "Forces and Newton’s laws",
+    "topic": "Understand and use weight and motion in a straight line under gravity; gravitational acceleration, g, and its value in S.I. units to varying degrees of accuracy. (The inverse square law for gravitation is not required and g may be assumed to be constant, but students should be aware that g is not a universal constant but depends on location.)",
+    "spec_order": 85,
+    "stretch_content": false,
+    "as_content": "all",
+    "page": 41
+  },
+  {
+    "node_id": "M8.4",
+    "spec_ref": "8.4",
+    "module": "Forces and Newton’s laws",
+    "topic": "Understand and use Newton’s third law; equilibrium of forces on a particle and motion in a straight line (restricted to forces in two perpendicular directions or simple cases of forces given as 2-D vectors); application to problems involving smooth pulleys and connected particles; resolving forces in 2 dimensions; equilibrium of a particle under coplanar forces.",
+    "spec_order": 86,
+    "stretch_content": false,
+    "as_content": "part",
+    "page": 42
+  },
+  {
+    "node_id": "M8.5",
+    "spec_ref": "8.5",
+    "module": "Forces and Newton’s laws",
+    "topic": "Understand and use addition of forces; resultant forces; dynamics for motion in a plane.",
+    "spec_order": 87,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 42
+  },
+  {
+    "node_id": "M8.6",
+    "spec_ref": "8.6",
+    "module": "Forces and Newton’s laws",
+    "topic": "Understand and use the F ≤µR model for friction; coefficient of friction; motion of a body on a rough surface; limiting friction and statics.",
+    "spec_order": 88,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 42
+  },
+  {
+    "node_id": "M9.1",
+    "spec_ref": "9.1",
+    "module": "Moments",
+    "topic": "Understand and use moments in simple static contexts.",
+    "spec_order": 89,
+    "stretch_content": false,
+    "as_content": "none",
+    "page": 42
+  }
+]

@@ -19,6 +19,11 @@ SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 CREDENTIALS_PATH = pathlib.Path(".secrets/client_secret.json")
 TOKEN_PATH = pathlib.Path(".secrets/token.json")
 
+# How many times each Drive request is retried (with growing pauses) when
+# the network drops or Drive answers 5xx/429. A laptop waking from sleep
+# mid-request turns into a short wait instead of a failed refresh.
+DRIVE_RETRIES = 4
+
 
 def get_credentials(interactive: bool = True) -> Credentials:
     """Load Drive credentials, refreshing or (if allowed) re-logging in.
@@ -61,7 +66,7 @@ def find_folder_by_name(service, name: str) -> str:
         "and mimeType = 'application/vnd.google-apps.folder' "
         "and trashed = false"
     )
-    response = service.files().list(q=query, fields="files(id, name)").execute()
+    response = service.files().list(q=query, fields="files(id, name)").execute(num_retries=DRIVE_RETRIES)
     folders = response.get("files", [])
 
     if len(folders) == 0:
@@ -94,7 +99,7 @@ def list_subfolders(service, folder_id: str) -> list[dict]:
             fields="nextPageToken, files(id, name)",
             pageSize=100,
             pageToken=page_token,
-        ).execute()
+        ).execute(num_retries=DRIVE_RETRIES)
         all_folders.extend(response.get("files", []))
         page_token = response.get("nextPageToken")
         if page_token is None:
@@ -163,7 +168,7 @@ def list_transcripts(service, folder_id: str, page_size: int = 100) -> list[dict
             orderBy="createdTime desc",
             pageSize=page_size,
             pageToken=page_token,
-        ).execute()
+        ).execute(num_retries=DRIVE_RETRIES)
         all_files.extend(response.get("files", []))
         page_token = response.get("nextPageToken")
         if page_token is None:
@@ -172,7 +177,7 @@ def list_transcripts(service, folder_id: str, page_size: int = 100) -> list[dict
 
 
 def export_transcript_text(service, file_id: str) -> str:
-    content = service.files().export(fileId=file_id, mimeType="text/plain").execute()
+    content = service.files().export(fileId=file_id, mimeType="text/plain").execute(num_retries=DRIVE_RETRIES)
     return content.decode("utf-8")
 
 

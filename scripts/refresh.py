@@ -28,7 +28,12 @@ actually looks:
     failures show on the index instead and retry the next night, capped by
     ingest.MAX_FAILED_ATTEMPTS.
 
-Usage: python scripts/refresh.py
+When it runs (ADR-011): daily at 20:00, and one minute after every unlock
+of the laptop, with catch-up if 20:00 was missed. The scheduled task passes
+--if-stale, which exits silently if the last successful run was under
+MIN_HOURS_BETWEEN_RUNS ago, so frequent unlocks don't pile up runs.
+
+Usage: python scripts/refresh.py [--if-stale]
 """
 
 import datetime
@@ -53,6 +58,7 @@ from schema_migrate import apply_schema
 DB_PATH = pathlib.Path("data/lessons.db")
 LOG_PATH = pathlib.Path("data/refresh.log")
 STATUS_PATH = pathlib.Path("data/last_refresh.json")
+MIN_HOURS_BETWEEN_RUNS = 2
 
 
 def now_local() -> str:
@@ -95,6 +101,30 @@ def students_to_brief(connection: sqlite3.Connection) -> list[str]:
 
 def count_open_reviews(connection: sqlite3.Connection) -> int:
     return connection.execute("SELECT COUNT(*) FROM needs_review WHERE resolved = 0").fetchone()[0]
+
+
+def last_ok_run_is_recent(status: dict | None, now: datetime.datetime) -> bool:
+    """True if the last refresh succeeded less than MIN_HOURS_BETWEEN_RUNS ago.
+
+    The scheduled task fires on every unlock as well as at 20:00 (ADR-011),
+    which can be many times a day. --if-stale uses this to skip runs that
+    would change nothing. A failed last run never counts as recent, so the
+    next unlock always retries it.
+    """
+    if status is None or not status.get("ok"):
+        return False
+    finished_at = datetime.datetime.fromisoformat(status["finished_at"])
+    age = now - finished_at
+    return age < datetime.timedelta(hours=MIN_HOURS_BETWEEN_RUNS)
+
+
+def read_last_status() -> dict | None:
+    if not STATUS_PATH.exists():
+        return None
+    try:
+        return json.loads(STATUS_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
 
 
 def run_refresh() -> int:
@@ -173,4 +203,10 @@ if __name__ == "__main__":
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
     else:
         sys.stdout.reconfigure(encoding="utf-8")
+
+    # The scheduled task passes --if-stale; running by hand never skips.
+    if "--if-stale" in sys.argv:
+        now = datetime.datetime.now().astimezone()
+        if last_ok_run_is_recent(read_last_status(), now):
+            sys.exit(0)
     sys.exit(run_refresh())

@@ -7,24 +7,33 @@ Hand-off notes between sessions. The start-of-session 5-bullet briefing reads th
 
 What Theo wants to pick up first next time:
 
-1. **Remind Theo to run the final nightly-refresh test (Phase 5 gate).** He opens
-   `briefs/index.html`. The status line should show a run at ~03:00 on 2026-10-09 (or soon
-   after first login) and be green. Also check Task Scheduler → `TutorAuto nightly refresh`
-   → Last Run Result = 0. If either fails, follow CLAUDE.md → "When something breaks"
-   (ADR-009). Tests 1–3 (brief content, dry-run idempotency, red staleness banner) all
-   passed on 2026-10-08.
-2. **Present P-05 and P-06 as options; Theo picks which to do.** P-05 = replace the quotes
+1. **Present P-05 and P-06 as options; Theo picks which to do.** P-05 = replace the quotes
    with a 2–3 sentence narration (generated in the existing extraction call). P-06 =
    suppress always-present foundational topics (N1–N9, A1–A8), which needs deliberation.
    Give a short tradeoff for each and let Theo choose. Don't start either unprompted.
-3. **Afterwards: brief UI/UX pass + Phase 6 history page together.** Iterate 5–6 base HTML
+2. **Afterwards: brief UI/UX pass + Phase 6 history page together.** Iterate 5–6 base HTML
    layouts so both views share one design.
 
-Optional, small: make the nightly log list A-Level/needs_review skips only the first time
-(it currently repeats ~84 skip lines a night in `data/refresh.log`).
+Optional, small: make the refresh log list A-Level/needs_review skips only the first time
+(it repeats ~84 skip lines per run in `data/refresh.log`; runs are now more frequent, ADR-011).
 
 Decided 2026-10-08: students' first names are fine in committed docs and tests (no
 initials needed).
+
+---
+
+## 2026-10-09 / 10
+
+- **Phase 5 gate passed (2026-10-10):** refresh ran automatically on Theo's first unlock
+  of the morning; index green with nothing run by hand.
+- **Why the first nightly run failed:** laptop asleep at 03:00; Windows started the
+  catch-up during a 5-second maintenance wake at 05:50, slept mid-Drive-request, and the
+  run hung until 14:24 then timed out. Nothing lost or written.
+- **New schedule (ADR-011):** task now runs at 20:00 daily and 1 minute after every unlock,
+  as `refresh.py --if-stale` (skips if the last successful run was < 2h ago; failures never
+  skip). Network-required setting on. Drive requests retry up to 4 times. 36 tests passing.
+- **Parked P-07:** what actually drives cost. Short answer given: run frequency costs
+  nothing; only one extraction call per *new* lesson is paid.
 
 ---
 

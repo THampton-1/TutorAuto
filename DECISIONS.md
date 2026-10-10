@@ -11,6 +11,30 @@ symptoms back to these entries, so start there when debugging.
 
 ---
 
+### ADR-011: Refresh runs at 20:00 and on every unlock, with Drive retries
+- **Date:** 2026-10-09
+- **Status:** Active (supersedes the schedule part of ADR-009; the rest of ADR-009 stands)
+- **Decision:** The task `TutorAuto nightly refresh` (name kept) now has two triggers:
+  daily at 20:00 (catch-up on), and one minute after every unlock of Windows. It runs
+  `refresh.py --if-stale`, which exits silently if the last *successful* refresh finished
+  under 2 hours ago (`MIN_HOURS_BETWEEN_RUNS`); a failed run never blocks the next one.
+  "Only run if network available" is on. Every Drive request is retried up to 4 times
+  (`DRIVE_RETRIES`) on network errors / 5xx / 429.
+- **Why:** On 2026-10-09 the 03:00 run never happened (laptop asleep); Windows started the
+  catch-up during a 5-second maintenance wake at 05:50, the laptop slept mid-request, and
+  the run hung until Theo opened the laptop at 14:24, then failed with "read operation
+  timed out". The laptop is almost never restarted (last boot 26 Sept), so an "at logon"
+  trigger would rarely fire; unlock is the real "I've started using the computer" moment.
+- **Rejected:** Wake-to-run at 03:00 (laptop waking itself nightly, possibly in a bag);
+  an "at logon" trigger (fires only after a restart); running on every unlock with no
+  guard (many identical runs a day, ~90 log lines each).
+- **Failure signs:** Index stale even though the laptop has been used (task disabled, or
+  `--if-stale` wrongly skipping: check `data/last_refresh.json`); a lesson finishing after
+  20:00 not appearing until the next unlock (expected); a lesson taught just after an unlock
+  run waiting up to 2h for the next unlock-triggered run (expected).
+- **Revisit if:** Lessons regularly end after 20:00 and the morning unlock comes too late,
+  or the laptop starts being shut down nightly (then add an at-logon trigger).
+
 ### ADR-010: Briefs are filed in one folder per student
 - **Date:** 2026-10-08
 - **Status:** Active (supersedes the file-location part of ADR-008)
@@ -32,7 +56,7 @@ symptoms back to these entries, so start there when debugging.
 
 ### ADR-009: Nightly scheduled refresh (the project's one background worker)
 - **Date:** 2026-10-08
-- **Status:** Active — **ambitious choice, review first if anything misbehaves**
+- **Status:** Active; schedule (03:00, catch-up only) superseded by ADR-011 — **ambitious choice, review first if anything misbehaves**
 - **Decision:** A Windows Task Scheduler task (`TutorAuto nightly refresh`) runs
   `scripts/refresh.py` daily at 03:00, which chains ingest → brief for every active student
   with lessons → index. Catch-up is enabled: if the laptop was off or asleep at 03:00, the

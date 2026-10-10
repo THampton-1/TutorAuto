@@ -35,7 +35,7 @@ Each student has their own folder, `briefs/<student_id>/`, holding all of their 
 - **Long term — the coverage history: `<id>/<id>_history.html`.** What we have covered
   over time, which topics came up and when, and how each one's status moved. Of near-equal
   importance to the brief. **Not built yet — Phase 6.**
-- **Freshness.** A scheduled task runs `scripts/refresh.py` nightly (ADR-009): new lessons
+- **Freshness.** A scheduled task runs `scripts/refresh.py` at 20:00 and on each unlock (ADR-009, ADR-011): new lessons
   in, every brief and the index rebuilt. A lesson taught today is in tomorrow's brief with
   nothing for me to run.
 
@@ -150,7 +150,7 @@ it in `SESSION_LOG.md` under "Carry-over". That is what bullet 5 surfaces next t
 - `anthropic` SDK for the extraction call.
 - `google-api-python-client` and `google-auth-oauthlib` for Drive access.
 - No web framework, no async. Exactly one background job: a Windows Task Scheduler task
-  that runs `scripts/refresh.py` nightly (ADR-009). No other background workers.
+  that runs `scripts/refresh.py` at 20:00 and on unlock (ADR-009, ADR-011). No other background workers.
 
 **Style:** explicit over clever. Prefer named loops and plain `if` statements to
 comprehension chains, `lambda`, and dense one-liners. I want to be able to read every line
@@ -323,7 +323,8 @@ then read the linked ADR before changing anything.
 | Symptom | Look at first | Decision |
 |---|---|---|
 | Index status line is red / says FAILED | `data/refresh.log` (newest run at the bottom) | ADR-009 |
-| Index warns the refresh is hours old | Task Scheduler → task `TutorAuto nightly refresh` → Last Run Result; was the laptop off? | ADR-009 |
+| Index warns the refresh is hours old | Task Scheduler → task `TutorAuto nightly refresh` → Last Run Result; was the laptop off? | ADR-009, ADR-011 |
+| Log shows a run that hung for hours, or "read operation timed out" | Laptop slept mid-run; Drive calls retry, and the next unlock retries the whole run | ADR-011 |
 | Log says "Drive login needed" | Run `python scripts/drive_client.py` by hand once to log in | ADR-009 |
 | A lesson is missing from a brief | 1) title gate: does it start `Lesson:` / `W<n>`? 2) `needs_review` (alias not matched) 3) student's syllabus has no tree (P-03) 4) did Meet put it somewhere new in Drive? | ADR-007, ADR-006 |
 | Same lesson appears twice | Two Drive Docs for one lesson (restarted meeting, Transcript + Notes by Gemini) | ADR-006 |

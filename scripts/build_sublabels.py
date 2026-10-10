@@ -1,7 +1,8 @@
 """Load short labels and sub-skills from the hand-reviewed markdown doc.
 
-Source of truth is curriculum_labels_review.md -- the block-per-node document
-Theo reviewed and edited by hand. This is a one-off pass in the same spirit as
+Source of truth is the block-per-node review document Theo edits by hand:
+curriculum_labels_review.md (GCSE, the default) or
+curriculum_labels_review_alevel.md (A-Level, ADR-015) passed as an argument. This is a one-off pass in the same spirit as
 build_curriculum.py: the model proposed, Theo corrected, and now we load the
 corrected result and independently verify nothing was lost.
 
@@ -11,7 +12,7 @@ converges on exactly what the doc says.
 
 The doc format this parses (strict -- do not loosen without reason):
 
-    ### N8  *(stretch)*
+    ### N8  *(stretch)*         (A-Level headings look like ### P7.3  *(AS)*)
     - **Label:** Surds
     - **Sub-skills:**
       - Exact values (surds & pi)
@@ -22,7 +23,10 @@ The doc format this parses (strict -- do not loosen without reason):
 Node heading, one Label line, a Sub-skills line, then 2-space-indented sub-skill
 bullets, then the Spec line. A "- **(warning) Grain check:**" note may sit
 between Label and Sub-skills; it is ignored (it is a top-level "- " bullet, not
-an indented "  - " sub-skill bullet, so indentation alone separates them).
+an indented "  - " sub-skill bullet, so indentation alone separates them). The
+A-Level doc's "- **AS:**" note line is ignored the same way.
+
+Usage: python scripts/build_sublabels.py [review_doc]
 """
 
 import pathlib
@@ -36,7 +40,9 @@ from schema_migrate import apply_schema
 DB_PATH = pathlib.Path("data/lessons.db")
 REVIEW_PATH = pathlib.Path("curriculum_labels_review.md")
 
-NODE_HEADING = re.compile(r"^### ([A-Z][0-9]+)\b")
+# "N8" (GCSE) or "P7.3" (A-Level). The optional ".digits" part matters:
+# without it "P7.3" would be read as node "P7".
+NODE_HEADING = re.compile(r"^### ([A-Z][0-9]+(?:\.[0-9]+)?)\b")
 LABEL_LINE = re.compile(r"^- \*\*Label:\*\* (.+)$")
 SUBSKILLS_LINE = re.compile(r"^- \*\*Sub-skills:\*\*\s*$")
 SUBSKILL_BULLET = re.compile(r"^  - (.+)$")
@@ -106,8 +112,22 @@ def write_sublabels(connection: sqlite3.Connection, parsed_nodes: list[dict]) ->
 def print_completeness_report(connection: sqlite3.Connection, parsed_nodes: list[dict]) -> bool:
     all_passed = True
 
-    db_node_ids = set(row[0] for row in connection.execute("SELECT node_id FROM curriculum_nodes"))
     doc_node_ids = set(node["node_id"] for node in parsed_nodes)
+
+    # Compare against the syllabus the doc is about, not every node in the
+    # database -- otherwise the A-Level doc "misses" all 97 GCSE nodes.
+    syllabuses = set()
+    for node_id in doc_node_ids:
+        row = connection.execute("SELECT syllabus FROM curriculum_nodes WHERE node_id = ?", (node_id,)).fetchone()
+        if row is not None:
+            syllabuses.add(row[0])
+    if len(syllabuses) != 1:
+        print(f"FAIL  review doc should cover exactly one syllabus, found {sorted(syllabuses)}")
+        return False
+    syllabus = syllabuses.pop()
+    db_node_ids = set(
+        row[0] for row in connection.execute("SELECT node_id FROM curriculum_nodes WHERE syllabus = ?", (syllabus,))
+    )
 
     missing_from_doc = db_node_ids - doc_node_ids
     if len(missing_from_doc) > 0:
@@ -131,7 +151,7 @@ def print_completeness_report(connection: sqlite3.Connection, parsed_nodes: list
 
     total_subskills = sum(len(node["sub_skills"]) for node in parsed_nodes)
     atomic = len([node for node in parsed_nodes if len(node["sub_skills"]) == 1])
-    print(f"PASS  {len(doc_node_ids)} nodes parsed, all present in DB" if all_passed else "")
+    print(f"PASS  {len(doc_node_ids)} {syllabus} nodes parsed, all present in DB" if all_passed else "")
     print(f"INFO  {total_subskills} sub-skills total ({atomic} atomic nodes with a single sub-skill)")
 
     return all_passed
@@ -140,16 +160,23 @@ def print_completeness_report(connection: sqlite3.Connection, parsed_nodes: list
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
 
-    review_text = REVIEW_PATH.read_text(encoding="utf-8")
+    review_path = REVIEW_PATH
+    if len(sys.argv) > 1:
+        review_path = pathlib.Path(sys.argv[1])
+    review_text = review_path.read_text(encoding="utf-8")
     parsed_nodes = parse_review(review_text)
 
     connection = sqlite3.connect(DB_PATH)
     connection.execute("PRAGMA foreign_keys = ON")
     apply_schema(connection)
-    write_sublabels(connection, parsed_nodes)
 
-    print(f"Loaded labels + sub-skills for {len(parsed_nodes)} nodes from {REVIEW_PATH}")
-    print()
+    # Check before writing: a doc that doesn't cover its whole syllabus
+    # (e.g. A-Level with only Pure reviewed) must not load, because ingest
+    # treats any syllabus with sub-skills as ready to extract against.
     all_passed = print_completeness_report(connection, parsed_nodes)
     print()
-    print("Completeness report: PASS" if all_passed else "Completeness report: FAIL")
+    if not all_passed:
+        print(f"Completeness report: FAIL -- nothing written from {review_path}")
+        sys.exit(1)
+    write_sublabels(connection, parsed_nodes)
+    print(f"Completeness report: PASS -- loaded labels + sub-skills for {len(parsed_nodes)} nodes from {review_path}")

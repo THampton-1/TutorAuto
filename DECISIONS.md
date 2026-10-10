@@ -11,6 +11,32 @@ symptoms back to these entries, so start there when debugging.
 
 ---
 
+### ADR-017: A-Level sub-skills may come from the spec's Guidance column, flagged
+- **Date:** 2026-10-10
+- **Status:** Active (extends the label + sub-skill technique of ADR-002/003)
+- **Decision:** Node text (`curriculum_nodes.topic`) stays the spec's Content column only. But
+  a topic that appears only in the Guidance column and is normally a lesson of its own gets
+  its own sub-skill, marked in the review doc's `⚠ Grain check` as Guidance-sourced. First
+  uses: P8.3.3 area under a parametric curve; S1.1 named sampling methods; S2.1 box plots /
+  cumulative frequency; S2.3 percentiles and coding; S4.2 unknown μ/σ and the Normal
+  approximation; M8.2 inclined planes; M9.1 ladders. A-Level headings also carry an
+  *(AS)* / *(AS part)* marker (from the spec's bold), with partly-AS nodes split at the
+  AS boundary; the marker is review-doc information only, not loaded.
+- **Why:** Theo spotted that parametric integration had no home: it is only in 8.3's
+  Guidance, so a parametric-area lesson would have been filed vaguely or as `unmatched`.
+  A skim of Paper 3's Guidance found the same pattern in six more places.
+- **Rejected:** Extracting the whole Guidance column into node text (worked examples and
+  exam notes would flood the sub-skill list); leaving Guidance topics to `unmatched`
+  (they are examinable spec content, and the brief would lose them).
+- **Failure signs:** A lesson on a standard A-Level technique landing in `unmatched`
+  (another Guidance-only topic, so add a sub-skill); Guidance-sourced sub-skills
+  attracting rows for loosely related lessons.
+- **Cost impact:** None.
+- **Revisit if:** The A-Level list grows unwieldy, or Pure's Guidance (not yet fully
+  skimmed beyond 8.3 and 7.3) turns out to hide more lesson-sized topics.
+
+---
+
 ### ADR-016: Lessons from before a student's current syllabus are skipped
 - **Date:** 2026-10-10
 - **Status:** Active

@@ -11,6 +11,102 @@ symptoms back to these entries, so start there when debugging.
 
 ---
 
+### ADR-014: Lesson summary is 4–6 skimmable bullets with bold key phrases and italic maths
+- **Date:** 2026-10-10
+- **Status:** Active (refines the summary *format* in ADR-012; the rest of ADR-012 stands)
+- **Decision:** `lesson_summary` is returned as a list of 4–6 bullets in lesson order,
+  stored one per line in `lessons.summary`. The model marks one or two key phrases per
+  bullet `**bold**` and maths `*italic*`; multiplication is written ×, never `*`. Any
+  next-time / homework statement goes last, led by **Next time (tutor said):** or
+  **Homework:**. "The student", never he/she. `brief.py` escapes the text first, then turns
+  only those two marks into `<strong>` / `<em>`. Social chat about the student's week
+  (e.g. school open evenings) is **kept deliberately**.
+- **Why:** The paragraph was the only part of the brief that couldn't be read at a glance —
+  you had to read all of it to get the overview. Reading just the bold now gives the
+  overview, with the full depth still there. Theo values the 5-second catch-up on what the
+  student has been up to, so social context is wanted, not noise.
+- **Rejected:** Fixed lead-ins (Covered / Confident / Difficulty / Next time) — tidier but
+  repeats the "How it went" section and loses the lesson's narrative order; splitting the
+  paragraph by sentence in Python (free, but long sentences stay unscannable); a prompt line
+  removing social chat (Theo wants it).
+- **Double quotes are banned in the summary.** First full run (2026-10-10): wherever the
+  model quoted the student in `"…"`, the `"` ended that bullet's JSON string early, so the
+  bullet was cut mid-sentence and the quoted words lost (6 bullets, 4 lessons). The prompt
+  now requires single quotes; the 4 lessons were re-extracted with
+  `reextract_cached.py --lesson-ids`. Per-row notes and quotes were not affected.
+- **Failure signs:** A summary bullet that stops mid-sentence (ends without `.`, `?`, `!` or
+  `)`) — the double-quote problem back; literal asterisks showing in the brief (model used
+  `*` for multiplication or left a mark unclosed); social chat spreading into more than one bullet
+  or crowding out the maths; summary bullets mentioning a topic with no coverage row.
+- **Cost impact:** None ongoing (same single call). One-off: one re-extract of all 16 GCSE
+  lessons, 2026-10-10.
+- **Revisit if:** Social chat appears in more than one bullet of a brief or becomes
+  distracting (Theo's stated trigger); or bullets grow too long to skim.
+
+---
+
+### ADR-013: Brief layout trial; "candidate next topics" paused
+- **Date:** 2026-10-10
+- **Status:** Active (trial — under test on Twins' 10 lessons)
+- **Decision:** The brief becomes four sections: (1) lesson summary, (2) topics at a glance
+  — module › topic › sub-skill chips coloured by status, (3) how it went — one note per
+  sub-skill grouped Sticking points / Worked on / Secure, quote behind a toggle, (4) still
+  open from earlier lessons — struggled / revisit-requested sub-skills from *before* this
+  lesson that nothing has touched since, with date and "N lessons since". The Phase 4
+  "three candidate next topics" section is removed for now; section 4 replaces it.
+  Extraction is frozen as of ADR-012 while the layout is tested: no further prompt
+  changes until reading real briefs shows a concrete gap.
+- **Why:** Mirrors the structure of Theo's Gemini recaps (summary → topics → confidence
+  signals) while keeping the curriculum rows as the backbone. The old candidates suggested
+  foundational nodes to advanced students (P-02); the useful part of "what next" is
+  cross-lesson — things raised before and never resolved — which is deterministic and needs
+  no model judgement (principle 7). Changing one layer at a time keeps re-extract costs to
+  one run.
+- **Rejected:** Splitting `note` into went_well / difficulty and adding a
+  "said for next time" field now (both need another paid re-extract; deferred until the
+  layout shows they're needed); model-written "priorities" (single-lesson view, edges into
+  principle 7).
+- **Failure signs:** An item listed under "still open" that was in fact covered later
+  (would mean the as-of query is wrong); "still open" growing long enough to be noise;
+  sticking points from the last lesson missing from section 3.
+- **Cost impact:** None — layout is pure SQL over existing rows.
+- **Revisit if:** Theo wants forward-looking suggestions back (the suggestion algorithm,
+  P-02), or the still-open list needs ranking/pruning.
+
+---
+
+### ADR-012: Briefs lead with model-written narration; quotes stay as hidden evidence
+- **Date:** 2026-10-10
+- **Status:** Active
+- **Decision:** The existing extraction call (still one per lesson) now also returns a
+  short lesson summary paragraph (`lessons.summary`) and a one-sentence note per
+  coverage row (`coverage_events.note`). The brief shows these in place of the verbatim
+  quotes; quotes are still extracted, stored and available under a collapsed toggle.
+  Lessons already in the DB gain narration through one full re-extract
+  (`reextract_cached.py`). Resolves P-05 (and P-01 with it).
+- **Why:** Theo found raw quotes near-useless for planning compared with his Gemini
+  recaps; a synthesis of what happened and how it went is what he actually reads. Putting
+  it in the existing call keeps principle 1 (one call per lesson) and adds only output
+  tokens. A per-row one-liner keeps the narration tied to a specific sub-skill and status;
+  the lesson paragraph gives the overall shape the rows can't.
+- **Rejected:** 2–3 sentences per sub-skill (repetitive when several sub-skills of one
+  topic are taught together); one narration per node (extra table, loses the per-sub-skill
+  link); a separate narration-only backfill prompt (keeps old rows unchanged, but a second
+  prompt to maintain); dropping quotes entirely (breaks principle 5, auditability).
+- **Constraints on the text:** Same conservatism as ADR-001 — a note can never claim more
+  than its row's status. Describes what happened, never recommends what to teach next
+  (principle 7); something Theo or the student *said* about next steps may be reported
+  as said.
+- **Failure signs:** A note that reads more positive than its status badge; a summary
+  mentioning a topic with no matching row; generic notes ("worked on this topic") that
+  could fit any lesson; empty summaries on lessons ingested before the re-extract.
+- **Cost impact:** New lessons: a few hundred extra output tokens per call. One-off: one
+  extraction call per lesson already in the DB, the same as their original ingest.
+- **Revisit if:** Narration drifts from the transcript (hallucinated detail), or Theo
+  finds the one-liners too thin and wants longer per-topic text.
+
+---
+
 ### ADR-011: Refresh runs at 20:00 and on every unlock, with Drive retries
 - **Date:** 2026-10-09
 - **Status:** Active (supersedes the schedule part of ADR-009; the rest of ADR-009 stands)

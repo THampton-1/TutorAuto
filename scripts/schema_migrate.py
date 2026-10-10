@@ -26,6 +26,8 @@ _ADDED_COLUMNS = [
     ("curriculum_nodes", "short_label", "TEXT"),
     ("coverage_events", "sub_skill_id", "TEXT"),
     ("students", "active", "INTEGER NOT NULL DEFAULT 1"),
+    ("lessons", "summary", "TEXT"),
+    ("coverage_events", "note", "TEXT"),
 ]
 
 

@@ -56,8 +56,9 @@ VALID_STATUSES = ["introduced", "practised", "secure", "struggled", "revisit_req
 
 SYSTEM_PROMPT_TEMPLATE = """\
 You are analysing the transcript of a one-to-one maths tutoring lesson. Your \
-only job is to identify which curriculum sub-skills from the list below were \
-covered in this lesson, and how.
+job is to identify which curriculum sub-skills from the list below were \
+covered in this lesson and how, and to summarise the lesson briefly for the \
+tutor. You describe what happened; you never suggest what to teach next.
 
 The curriculum is organised as nodes (a spec point, e.g. N8 Surds), each split \
 into sub-skills (e.g. N8.3 Rationalising denominators). You report coverage at \
@@ -77,6 +78,15 @@ For each sub-skill actually discussed or practised in the transcript, report:
       be covered again in a future lesson
 - evidence_quote: a short quote copied verbatim from the transcript that
   supports this classification. Do not paraphrase.
+- note: ONE sentence, in your own words, saying what the student actually did \
+  with this sub-skill in this lesson and how it went. Be specific to this \
+  lesson: name the kind of question, the step they got right or wrong, the \
+  misconception, or whether they needed prompting (e.g. "Rearranged the sine \
+  rule correctly to find a side, but twice used the wrong angle until shown \
+  how to relabel the triangle."). Never write a generic note that could \
+  describe any lesson, such as "worked on this topic". The note must never \
+  sound more positive than the status you gave: a practised row cannot read \
+  as mastered, and a struggled row must say what the difficulty was.
 - raw_label: leave this as an empty string when sub_skill_id is a real ID from
   the list below.
 
@@ -101,6 +111,34 @@ status best fits, prefer the more conservative reading. It is better to omit a \
 borderline sub-skill entirely, or to under-state its status (introduced rather \
 than practised, practised rather than secure), than to claim coverage or \
 mastery the transcript does not clearly support.
+
+After the coverage rows, write lesson_summary: a list of four to six \
+bullet points for the tutor to skim before the next lesson, in the order the \
+lesson happened. Each bullet is one or two short sentences. Together they say \
+what the lesson covered, where the student was confident, where they had \
+difficulty (be specific: the exact step, misconception, wrong value, or what \
+they said), and anything the tutor or student explicitly said about homework \
+or what to do next time. Keep that detail -- short sentences, not less \
+information.
+
+Formatting inside each bullet (it is rendered, so follow it exactly):
+- Wrap the key phrase of the bullet in double asterisks, e.g. \
+  **struggled to identify which triangles** to compare. One or two bold \
+  phrases per bullet, so that reading only the bold gives the overview.
+- Wrap mathematical expressions, formulae and named rules in single \
+  asterisks, e.g. *½ab sin C*, *fg(x)*, *SAS*, *x² + 3x*.
+- Never use asterisks for anything else. Write multiplication as × .
+- Never use double quotation marks ("). When quoting the student or tutor, \
+  use single quotes, e.g. said 'I'm really confused'.
+- Do not start a bullet with "-" or "•"; each list item is already a bullet.
+- If something was said about next time or homework, put it in the last \
+  bullet, starting **Next time (tutor said):** or **Homework:** as fits.
+
+Only mention topics that appear in your coverage rows. Follow the same \
+conservative reading as the rows. Report what happened and what was said; \
+never add your own recommendation of what to teach next -- the tutor makes \
+that decision. Refer to "the tutor" and "the student" (or "the students" if \
+more than one student is taking part); never use "he" or "she".
 
 Curriculum nodes and their sub-skills for this student's syllabus:
 {node_catalogue}
@@ -213,19 +251,25 @@ def build_output_schema(valid_sub_skill_ids: list[str]) -> dict:
                         "sub_skill_id": {"type": "string", "enum": valid_sub_skill_ids + ["unmatched"]},
                         "status": {"type": "string", "enum": VALID_STATUSES},
                         "evidence_quote": {"type": "string"},
+                        "note": {"type": "string"},
                         "raw_label": {"type": "string"},
                     },
-                    "required": ["sub_skill_id", "status", "evidence_quote", "raw_label"],
+                    "required": ["sub_skill_id", "status", "evidence_quote", "note", "raw_label"],
                     "additionalProperties": False,
                 },
-            }
+            },
+            # Listed after coverage on purpose: the model writes the rows
+            # first, so the summary is grounded in what it has already
+            # committed to rather than the other way round.
+            "lesson_summary": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["coverage"],
+        "required": ["coverage", "lesson_summary"],
         "additionalProperties": False,
     }
 
 
-def call_extraction(client: anthropic.Anthropic, transcript_body: str, nodes: list[dict]) -> list[dict]:
+def call_extraction(client: anthropic.Anthropic, transcript_body: str, nodes: list[dict]) -> dict:
+    """Returns {"coverage": [row, ...], "lesson_summary": [bullet, ...]} (ADR-012, ADR-014)."""
     valid_sub_skill_ids = collect_sub_skill_ids(nodes)
     node_catalogue = build_node_catalogue(nodes)
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(node_catalogue=node_catalogue)
@@ -256,7 +300,21 @@ def call_extraction(client: anthropic.Anthropic, transcript_body: str, nodes: li
     import json
 
     parsed = json.loads(text)
-    return parsed["coverage"]
+    return parsed
+
+
+def summary_bullets_to_text(bullets: list[str]) -> str:
+    """Store the summary bullets one per line in lessons.summary (ADR-014).
+
+    Newlines inside a bullet are flattened to spaces so that "one line =
+    one bullet" always holds when brief.py splits them back apart.
+    """
+    lines = []
+    for bullet in bullets:
+        line = " ".join(bullet.split())
+        if line != "":
+            lines.append(line)
+    return "\n".join(lines)
 
 
 def insert_lesson(
@@ -265,13 +323,14 @@ def insert_lesson(
     student_id: str,
     date: str,
     transcript_path: pathlib.Path,
+    summary: str,
 ) -> int:
     cursor = connection.execute(
         """
-        INSERT INTO lessons (drive_file_id, student_id, date, transcript_path, processed_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO lessons (drive_file_id, student_id, date, transcript_path, processed_at, summary)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (drive_file_id, student_id, date, str(transcript_path), datetime.datetime.now(datetime.timezone.utc).isoformat()),
+        (drive_file_id, student_id, date, str(transcript_path), datetime.datetime.now(datetime.timezone.utc).isoformat(), summary),
     )
     connection.commit()
     return cursor.lastrowid
@@ -305,10 +364,10 @@ def write_coverage(
             connection.execute(
                 """
                 INSERT INTO coverage_events
-                    (lesson_id, student_id, node_id, sub_skill_id, status, evidence_quote, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (lesson_id, student_id, node_id, sub_skill_id, status, evidence_quote, note, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (lesson_id, student_id, node_id, sub_skill_id, event["status"], event["evidence_quote"], created_at),
+                (lesson_id, student_id, node_id, sub_skill_id, event["status"], event["evidence_quote"], event["note"], created_at),
             )
     connection.commit()
 
@@ -419,10 +478,11 @@ def ingest_one(
     # The extraction call runs before any DB write for this lesson. If it
     # fails, nothing is committed, so a re-run does not see a phantom
     # "already ingested" row with no coverage attached to it.
-    coverage = call_extraction(anthropic_client, transcript_body, nodes)
+    extraction = call_extraction(anthropic_client, transcript_body, nodes)
+    coverage = extraction["coverage"]
 
     date = transcript["createdTime"][:10]
-    lesson_id = insert_lesson(connection, drive_file_id, student_id, date, transcript_path)
+    lesson_id = insert_lesson(connection, drive_file_id, student_id, date, transcript_path, summary_bullets_to_text(extraction["lesson_summary"]))
     write_coverage(connection, lesson_id, student_id, coverage)
     mark_needs_review_resolved(connection, drive_file_id)
 

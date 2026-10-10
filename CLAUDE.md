@@ -24,9 +24,13 @@ Each student has their own folder, `briefs/<student_id>/`, holding all of their 
 
 - **Entry point: `briefs/index.html`** (bookmark it). One card per student, plus a status
   line for the last nightly refresh — red if it failed or is more than 36 hours old.
-- **Short term — the pre-lesson brief: `<id>/<id>_latest.html`.** What we covered last
-  lesson, backed by verbatim quotes; struggled sub-skills not revisited since; explicit
-  revisit requests; three candidate next topics. Read in the ten minutes before a lesson.
+- **Short term — the pre-lesson brief: `<id>/<id>_latest.html`.** Four sections
+  (ADR-012..014): (1) a 4–6 bullet summary of the last lesson, key phrases bold, maths
+  italic, including a line on the student's week; (2) topics at a glance — module › topic ›
+  sub-skill chips coloured by status; (3) how it went — a one-sentence note per sub-skill,
+  sticking points first, verbatim quote behind a toggle; (4) still open from earlier
+  lessons — struggled / revisit-requested items untouched since. Candidate next topics are
+  paused (ADR-013). Read in the ten minutes before a lesson.
 - **Brief archive: `<id>/<id>_<lesson date>.html`.** The brief as it stood after that
   lesson — one file per lesson, kept for good, never a pile of identical daily copies.
   Every refresh rebuilds every lesson's brief using only lessons up to that date, so no
@@ -297,6 +301,8 @@ containing: last lesson summary, nodes touched with status and quote, explicit
 revisit requests, nodes marked `struggled` and not revisited since, and three candidate next
 topics with a one-line rationale each.
 Gate: I read a real brief and can make a planning decision from it alone.
+*(Layout since reworked — see "How I consume the output" and ADR-012..014. The candidates
+section is paused pending a better suggestion algorithm, P-02.)*
 
 **Phase 5 — nightly refresh.** `refresh.py` chains ingest → brief for every active student
 with lessons → index, run nightly by Windows Task Scheduler (ADR-009). Failures go to

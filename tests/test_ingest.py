@@ -7,11 +7,14 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "scripts
 from ingest import (
     build_output_schema,
     count_failed_attempts,
+    insert_lesson,
     is_lesson_title,
     mark_needs_review_resolved,
     normalize_title,
     record_needs_review,
     resolve_student,
+    summary_bullets_to_text,
+    write_coverage,
 )
 
 
@@ -136,3 +139,60 @@ def test_failed_attempts_are_each_recorded_and_counted():
     assert count_failed_attempts(connection, "file2") == 0
     mark_needs_review_resolved(connection, "file1")
     assert count_failed_attempts(connection, "file1") == 0
+
+
+def test_build_output_schema_requires_note_per_row_and_lesson_summary():
+    # ADR-012: narration comes from the same single call, so the schema must
+    # force both fields -- a missing note would silently blank the brief.
+    schema = build_output_schema(["N1.1"])
+    row_required = schema["properties"]["coverage"]["items"]["required"]
+    assert "note" in row_required
+    assert "evidence_quote" in row_required
+    assert schema["required"] == ["coverage", "lesson_summary"]
+
+
+def make_schema_connection() -> sqlite3.Connection:
+    repo_root = pathlib.Path(__file__).resolve().parent.parent
+    connection = sqlite3.connect(":memory:")
+    connection.executescript((repo_root / "scripts" / "schema.sql").read_text(encoding="utf-8"))
+    connection.execute(
+        "INSERT INTO curriculum_nodes VALUES ('N8', 'gcse', 'Number', 'surds spec text', 1, 0, 'Surds')"
+    )
+    connection.execute("INSERT INTO sub_skills VALUES ('N8.3', 'N8', 'Rationalising denominators', 1)")
+    connection.execute(
+        "INSERT INTO students (student_id, name, exam, year_of_study, syllabus, exam_board) "
+        "VALUES ('ruby_t', 'Ruby T', 'GCSE', '11', 'gcse', 'Edexcel')"
+    )
+    connection.commit()
+    return connection
+
+
+def test_insert_lesson_and_write_coverage_store_narration_and_quote():
+    connection = make_schema_connection()
+    lesson_id = insert_lesson(
+        connection, "f1", "ruby_t", "2026-09-01", pathlib.Path("t.txt"), "Surds lesson; rationalising was shaky."
+    )
+    write_coverage(
+        connection,
+        lesson_id,
+        "ruby_t",
+        [
+            {
+                "sub_skill_id": "N8.3",
+                "status": "struggled",
+                "evidence_quote": "multiply top and bottom by root two",
+                "note": "Forgot to multiply the numerator as well as the denominator.",
+                "raw_label": "",
+            }
+        ],
+    )
+    summary = connection.execute("SELECT summary FROM lessons WHERE lesson_id = ?", (lesson_id,)).fetchone()[0]
+    assert summary == "Surds lesson; rationalising was shaky."
+    note, quote = connection.execute("SELECT note, evidence_quote FROM coverage_events").fetchone()
+    assert note == "Forgot to multiply the numerator as well as the denominator."
+    assert quote == "multiply top and bottom by root two"
+
+
+def test_summary_bullets_stored_one_per_line():
+    text = summary_bullets_to_text(["**Covered** surds", "  ", "Struggled with\n*√3*"])
+    assert text == "**Covered** surds\nStruggled with *√3*"

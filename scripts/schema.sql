@@ -59,7 +59,11 @@ CREATE TABLE IF NOT EXISTS lessons (
     student_id TEXT NOT NULL REFERENCES students(student_id),
     date TEXT NOT NULL,
     transcript_path TEXT,
-    processed_at TEXT
+    processed_at TEXT,
+    -- Model-written paragraph summarising the lesson, from the same single
+    -- extraction call as the coverage rows (ADR-012). NULL for lessons
+    -- ingested before narration existed. Added via schema_migrate.py.
+    summary TEXT
 );
 
 CREATE TABLE IF NOT EXISTS coverage_events (
@@ -73,6 +77,10 @@ CREATE TABLE IF NOT EXISTS coverage_events (
     sub_skill_id TEXT REFERENCES sub_skills(sub_skill_id),
     status TEXT NOT NULL,
     evidence_quote TEXT NOT NULL,
+    -- One-sentence model-written note on what happened with this sub-skill
+    -- (ADR-012). Shown in the brief instead of the quote; the quote stays as
+    -- the audit trail. NULL on older rows. Added via schema_migrate.py.
+    note TEXT,
     created_at TEXT NOT NULL
 );
 

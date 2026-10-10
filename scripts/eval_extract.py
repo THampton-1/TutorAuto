@@ -57,7 +57,8 @@ if __name__ == "__main__":
     nodes = load_valid_nodes(connection, syllabus)
 
     client = anthropic.Anthropic(api_key=load_api_key())
-    coverage = call_extraction(client, transcript_body, nodes)
+    extraction = call_extraction(client, transcript_body, nodes)
+    coverage = extraction["coverage"]
 
     # Flatten to a sub_skill_id -> context lookup for display.
     sub_skill_lookup = {}
@@ -70,6 +71,10 @@ if __name__ == "__main__":
             }
 
     print(f"student: {student_id} | syllabus: {syllabus} | {len(coverage)} coverage row(s)\n")
+    print("LESSON SUMMARY")
+    for bullet in extraction["lesson_summary"]:
+        print(f"  * {bullet}")
+    print()
     for event in coverage:
         if event["sub_skill_id"] == "unmatched":
             print(f"[UNMATCHED] {event['raw_label']!r} -- status: {event['status']}")
@@ -80,5 +85,6 @@ if __name__ == "__main__":
                 f"{context['node_label']} > {context['sub_label']}"
             )
             print(f"    status: {event['status']}")
+        print(f"    note:  {event['note']}")
         print(f"    quote: {event['evidence_quote']!r}")
         print()

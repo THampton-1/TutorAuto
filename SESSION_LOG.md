@@ -7,18 +7,47 @@ Hand-off notes between sessions. The start-of-session 5-bullet briefing reads th
 
 What Theo wants to pick up first next time:
 
-1. **Present P-05 and P-06 as options; Theo picks which to do.** P-05 = replace the quotes
-   with a 2–3 sentence narration (generated in the existing extraction call). P-06 =
-   suppress always-present foundational topics (N1–N9, A1–A8), which needs deliberation.
-   Give a short tradeoff for each and let Theo choose. Don't start either unprompted.
-2. **Afterwards: brief UI/UX pass + Phase 6 history page together.** Iterate 5–6 base HTML
-   layouts so both views share one design.
+1. **P-06: work out the plan properly before building anything.** Suppressing
+   always-present foundational topics (N1–N9, A1–A8). Theo wants a real planning
+   discussion: where they'd be hidden (topics at a glance, how it went, still open),
+   hide vs collapse into one "foundations" line, display-only (never at extraction),
+   keep showing when struggled / revisit_requested. Look at how often they actually
+   appear in the 16 re-extracted lessons first, so the plan is based on data.
+   Remember Theo's caution: one change at a time (memory: incremental restructures).
+2. **Then: A-Level (P-03).** Build the A-Level curriculum tree with the same label +
+   sub-skill technique as GCSE; ~63 lessons waiting, so dry-run and estimate cost before
+   the first ingest.
 
-Optional, small: make the refresh log list A-Level/needs_review skips only the first time
-(it repeats ~84 skip lines per run in `data/refresh.log`; runs are now more frequent, ADR-011).
+Also open, smaller (Theo hasn't prioritised these):
+- Phase 6 history page — reuse the new brief layout's chips and notes.
+- Ingest the 3 eval Twins lessons (19/06, 16/07, 26/07) — fills the 04/06→21/08 gap; today
+  "still open" shows the cosine rule open since 04/06 though those lessons had it secure.
+- `reextract_cached.py` dies on the first network drop (seen 2026-10-10); give it the same
+  per-lesson error handling `ingest.py` has.
+- Refresh log repeats ~84 skip lines per run; list A-Level/needs_review skips once.
 
 Decided 2026-10-08: students' first names are fine in committed docs and tests (no
 initials needed).
+
+---
+
+## 2026-10-10
+
+- **P-05 done (ADR-012):** the single extraction call now also writes a one-sentence `note`
+  per sub-skill and a lesson summary. Quotes are still stored, shown behind a toggle.
+  New columns `lessons.summary`, `coverage_events.note`. P-01 resolved with it.
+- **New brief layout (ADR-013):** summary → topics at a glance (status chips) → how it
+  went (sticking points first) → still open from earlier lessons. "Candidate next topics"
+  paused (P-02 stays open for when suggestions return).
+- **Summary format (ADR-014):** 4–6 bullets, bold key phrases, italic maths, social chat
+  about the student's week kept on purpose. Theo: "by far the best summaries I have read."
+- **Re-extracted all 16 GCSE lessons** (Twins 10, Eliza 5, Gabriel 1). Found and fixed:
+  double quotes in the summary cut bullets off mid-sentence (prompt now bans them; 4 lessons
+  repaired via new `reextract_cached.py --lesson-ids`); an italic-pairing bug in rendering.
+- Twins 16/04 "lesson" is an 831-character unrelated recording, not a lesson — harmless,
+  could be retitled in Drive.
+- DB backups: `data/lessons.db.pre-narration-2026-10-10.bak`, `…pre-bullets-2026-10-10.bak`.
+  44 tests passing.
 
 ---
 

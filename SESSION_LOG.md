@@ -7,19 +7,17 @@ Hand-off notes between sessions. The start-of-session 5-bullet briefing reads th
 
 What Theo wants to pick up first next time:
 
-1. **P-06: work out the plan properly before building anything.** Suppressing
-   always-present foundational topics (N1–N9, A1–A8). Theo wants a real planning
-   discussion: where they'd be hidden (topics at a glance, how it went, still open),
-   hide vs collapse into one "foundations" line, display-only (never at extraction),
-   keep showing when struggled / revisit_requested. Look at how often they actually
-   appear in the 16 re-extracted lessons first, so the plan is based on data.
-   Remember Theo's caution: one change at a time (memory: incremental restructures).
-2. **Then: A-Level (P-03).** Build the A-Level curriculum tree with the same label +
-   sub-skill technique as GCSE; ~63 lessons waiting, so dry-run and estimate cost before
-   the first ingest.
+1. **P-09: sandbox app follow-ups — first thing (Theo, 2026-10-11).** Merge the one-page
+   app (branch `sandbox`, commit `0d88831`) onto master with an ADR; point it at the live
+   `data/` instead of its snapshot and wire `build_app.py` into `refresh.py`; decide how
+   to keep `app.js` (~2,800 lines) maintainable; watch the file size (transcripts are
+   embedded). Full detail in PARKING.md, P-09.
+
+(The two items that were here, P-06 and P-03, are both resolved — see PARKING.md.)
 
 Also open, smaller (Theo hasn't prioritised these):
-- Phase 6 history page — reuse the new brief layout's chips and notes.
+- Phase 6 history page — now prototyped in the sandbox app (History and Heatmap tabs);
+  finalise it as part of P-09.
 - Ingest the 3 eval Twins lessons (19/06, 16/07, 26/07) — fills the 04/06→21/08 gap; today
   "still open" shows the cosine rule open since 04/06 though those lessons had it secure.
 - `reextract_cached.py` dies on the first network drop (seen 2026-10-10); give it the same
@@ -28,6 +26,33 @@ Also open, smaller (Theo hasn't prioritised these):
 
 Decided 2026-10-08: students' first names are fine in committed docs and tests (no
 initials needed).
+
+---
+
+## 2026-10-11 — sandbox app (ran alongside the P-03 session)
+
+- **Built a one-page app in a sandbox** — branch `sandbox`, commit `0d88831`, worktree
+  `.claude/worktrees/sandbox`; nothing on master touched. `scripts/build_app.py` turns
+  lessons.db + the cached transcripts into `briefs/app.html`: Brief tab (any lesson's
+  brief, computed by brief.py itself), History (timeline with a stacked status bar per
+  lesson), Heatmap (topic × lesson), instant search, topic and transcript drawers.
+  Open `.claude\worktrees\sandbox\briefs\app.html`. Theo: "exactly what I wanted".
+- **Measured:** opens in 35–70 ms; search 1–10 ms per keystroke; £0 (no API calls).
+  69 tests pass on the branch; a headless-Chrome script ran 36 interactive checks (keys,
+  clicks, back button, phone width), all passing.
+- **Evidence quotes (principle 5) hold up:** ~28% aren't verbatim substrings because Meet
+  splits one utterance across lines and the model joins the pieces; a word-by-word
+  aligner still places 99% (366 of 370) for the "Show in transcript" link.
+- **Transcript search exposes under-recording (ADR-001):** e.g. bounds never appears in
+  the Twins' coverage but is said in 3 of their transcripts — the P-02 caveat, visible.
+- **Possible extraction quirk (not parked):** the cosine rule came back *introduced* on
+  1 Oct after being *practised* in June.
+- **Status colours redone** for colour-blind safety — one blue ramp introduced → practised
+  → secure, red/orange for struggled/revisit, a glyph on every mark — checked with the
+  dataviz palette validator, not by eye.
+- Committed tests use invented speakers: no surnames or real transcript speech in git
+  (the repo has a GitHub remote).
+- Left for P-09: merge + ADR, snapshot data, `app.js` size, embedded-transcript size.
 
 ---
 

@@ -210,12 +210,16 @@ def test_syllabus_with_nodes_but_no_sub_skills_counts_as_no_tree():
 
 
 def test_new_syllabus_is_held_from_unattended_runs():
-    skip = check_student_in_scope(1, "edexcel_alevel_maths", 300, allow_any_syllabus=False)
+    skip = check_student_in_scope(1, "some_future_syllabus", 300, allow_any_syllabus=False)
     assert skip[0] == "not_enabled"
 
 
 def test_naming_the_student_opts_a_new_syllabus_in():
-    assert check_student_in_scope(1, "edexcel_alevel_maths", 300, allow_any_syllabus=True) is None
+    assert check_student_in_scope(1, "some_future_syllabus", 300, allow_any_syllabus=True) is None
+
+
+def test_alevel_now_proceeds_unattended():
+    assert check_student_in_scope(1, "edexcel_alevel_maths", 178, allow_any_syllabus=False) is None
 
 
 def test_lesson_before_syllabus_start_is_skipped():

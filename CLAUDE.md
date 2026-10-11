@@ -219,7 +219,7 @@ arbitrary titles; the gate plus the roster lookup below is the whole mechanism.
    writing anything if the student is inactive, if the lesson predates the student's
    `Syllabus Since` date (e.g. a former GCSE student's old lessons, ADR-016), if the
    syllabus has no curriculum tree
-   (with sub-skills) yet (A-Level today, P-03), or if the syllabus isn't in
+   (with sub-skills) yet, or if the syllabus isn't in
    `AUTO_INGEST_SYLLABUSES` and the run didn't name the student with `--student`
    (ADR-015). A skipped lesson is picked up automatically once the reason goes away.
 6. Export the Doc to plain text.
@@ -263,9 +263,9 @@ also the sole seed row in `aliases` for that student. `exam` is `GCSE` or `A Lev
 straight from `Students.xlsx`; `syllabus` is derived from it deterministically
 (`build_roster.py`'s `EXAM_TO_SYLLABUS` map — currently `edexcel_gcse_higher` for GCSE,
 `edexcel_alevel_maths` for A Level). All current students are Edexcel; all current GCSE
-students are Higher tier — both hard-coded for now since the sheet has no board/tier column
-and only one curriculum tree exists. A-Level students correctly show 0 matching nodes until
-an A-Level tree is built (out of scope for this pass, see below; ingest skips them, P-03).
+students are Higher tier — both hard-coded for now since the sheet has no board/tier column.
+Two curriculum trees exist: GCSE Higher (97 nodes, 182 sub-skills) and A-Level Maths 9MA0
+(89 nodes `P`/`S`/`M` + spec ref, e.g. `P7.3`, 178 sub-skills; ADR-015..017).
 
 `grade_prediction`, `confidence_level`, and `notes` are loaded but not consumed by anything
 yet — they exist for Phase 4's stretch-content filtering (e.g. don't suggest bold/stretch
@@ -338,7 +338,7 @@ then read the linked ADR before changing anything.
 | Index warns the refresh is hours old | Task Scheduler → task `TutorAuto nightly refresh` → Last Run Result; was the laptop off? | ADR-009, ADR-011 |
 | Log shows a run that hung for hours, or "read operation timed out" | Laptop slept mid-run; Drive calls retry, and the next unlock retries the whole run | ADR-011 |
 | Log says "Drive login needed" | Run `python scripts/drive_client.py` by hand once to log in | ADR-009 |
-| A lesson is missing from a brief | 1) title gate: does it start `Lesson:` / `W<n>`? 2) `needs_review` (alias not matched) 3) student's syllabus has no tree (P-03), or isn't in `AUTO_INGEST_SYLLABUSES` yet 4) student marked inactive 5) did Meet put it somewhere new in Drive? | ADR-007, ADR-006, ADR-015 |
+| A lesson is missing from a brief | 1) title gate: does it start `Lesson:` / `W<n>`? 2) `needs_review` (alias not matched) 3) student's syllabus has no tree, or isn't in `AUTO_INGEST_SYLLABUSES` 4) student marked inactive 5) did Meet put it somewhere new in Drive? | ADR-007, ADR-006, ADR-015 |
 | Same lesson appears twice | Two Drive Docs for one lesson (restarted meeting, Transcript + Notes by Gemini) | ADR-006 |
 | Brief files with odd names / too many files | Naming rule: one file per lesson date | ADR-008 |
 | Index card link broken, or a brief stopped updating | Briefs live in `briefs/<id>/`; a top-level `<id>_latest.html` is a stale leftover | ADR-010 |
@@ -347,8 +347,9 @@ then read the linked ADR before changing anything.
 
 ## Out of scope for v1
 
-- ~~A-Level curriculum tree~~ — now in progress (P-03, ADR-015): 89 nodes loaded
-  2026-10-10; sub-skills, pilot and backfill to follow
+- ~~A-Level curriculum tree~~ — done 2026-10-11 (P-03, ADR-015..017): tree loaded, all
+  37 A-Level lessons ingested, A-Level in the nightly refresh. A-Level *Further* Maths
+  has no tree
 
 - Payment logging and reminders
 - A prerequisite graph between nodes (the spec does not encode this; I will add it by hand

@@ -435,7 +435,8 @@ def mark_needs_review_resolved(connection: sqlite3.Connection, drive_file_id: st
 # this, loading a tree would make the next refresh ingest that syllabus's
 # whole backlog (~60 paid calls for A-Level) at once -- and a tree whose
 # sub-skills weren't loaded yet would be extracted against an empty list.
-AUTO_INGEST_SYLLABUSES = ["edexcel_gcse_higher"]
+# A-Level added 2026-10-11 after the pilot and the full backfill (ADR-015 step 5).
+AUTO_INGEST_SYLLABUSES = ["edexcel_gcse_higher", "edexcel_alevel_maths"]
 
 
 def check_student_in_scope(

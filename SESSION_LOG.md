@@ -13,6 +13,14 @@ What Theo wants to pick up first next time:
    to keep `app.js` (~2,800 lines) maintainable; watch the file size (transcripts are
    embedded). Full detail in PARKING.md, P-09.
 
+2. **Then: a "Plan with Claude" button in the app** (Theo: "the next cool one"). A
+   `tutorauto://plan?student=<id>` link type registered for Theo's Windows user only
+   (no admin) that opens a terminal running Claude Code on `/ask plan <student>'s next
+   lesson`. Security rule: the launcher never takes prompt text from the link, only an
+   action from a fixed list plus a student id checked against `lessons.db`. About an
+   hour of work, needs a short ADR. Before building it, try `/ask` for real (start with
+   `/ask plan Saska's next lesson`) to judge whether the plans are worth a button.
+
 (The two items that were here, P-06 and P-03, are both resolved — see PARKING.md.)
 
 Also open, smaller (Theo hasn't prioritised these):
@@ -53,6 +61,13 @@ initials needed).
 - Committed tests use invented speakers: no surnames or real transcript speech in git
   (the repo has a GitHub remote).
 - Left for P-09: merge + ADR, snapshot data, `app.js` size, embedded-transcript size.
+- **Added `/ask`** (`.claude/commands/ask.md`): a saved prompt that answers questions or
+  drafts lesson plans from `lessons.db`, opened read-only, plus the brief `.md` files.
+  No code or API cost. Usage: `/ask has Eliza done bounds?`. In-app chat via a free
+  Hugging Face model was discussed and set aside: a local model is weaker and slow on a
+  laptop, the hosted free tier sends student data to a third party, and either would need
+  a server. Claude Haiku over search-retrieved rows would cost under 1p a question if
+  in-app chat is ever wanted.
 
 ---
 
